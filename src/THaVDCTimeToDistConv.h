@@ -27,9 +27,11 @@ namespace VDC {
 					Double_t* ddist = 0 ) const = 0;
     Double_t         GetDriftVel() { return fDriftVel; }
     virtual Double_t GetParameter( UInt_t ) const { return kBig; }
+    virtual Int_t    PrintParameters() const {return 0;} 
     void             SetDriftVel( Double_t v );
     virtual Int_t    SetParameters( const std::vector<double>& );
-
+    virtual Int_t    SetLookupParams( std::vector<Double_t> Table, Int_t NBins, Double_t Low, Double_t R, Double_t Theta);
+    
 protected:
     TimeToDistConv( UInt_t npar = 0 );
 

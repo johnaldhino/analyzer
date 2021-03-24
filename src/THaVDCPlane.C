@@ -22,6 +22,7 @@
 #include "THaVDCHit.h"
 #include "THaDetMap.h"
 #include "THaVDCAnalyticTTDConv.h"
+#include "THaVDCLookupTTDConv.h"
 #include "THaEvData.h"
 #include "TString.h"
 #include "TClass.h"
@@ -152,7 +153,19 @@ Int_t THaVDCPlane::ReadDatabase( const TDatime& date )
   vector<Int_t> detmap, bad_wirelist;
   vector<Double_t> ttd_param;
   vector<Float_t> tdc_offsets;
-  TString ttd_conv = "AnalyticTTDConv";
+  // TString ttd_conv = "AnalyticTTDConv";
+  TString ttd_conv = "LookupTTDConv";
+
+  
+  // read lookup table
+  vector<Double_t> LTable; // lookup table
+  Int_t LNumBins; // number of bins in lookup table
+  Double_t LTLow; // smallest time for plane
+  Double_t Theta0; // angular correction central angle
+  Double_t RCorr; //angular correction parameter: distance where correction shifts form from prop to time to constant  
+  
+  
+  
   // Default values for optional parameters
   fTDCRes = 5.0e-10;  // 0.5 ns/chan = 5e-10 s /chan
   fT0Resolution = 6e-8; // 60 ns --- crude guess
@@ -180,6 +193,11 @@ Int_t THaVDCPlane::ReadDatabase( const TDatime& date )
     { "tdc.offsets",    &tdc_offsets,    kFloatV },
     { "ttd.converter",  &ttd_conv,       kTString, 0, 1, -1 },
     { "ttd.param",      &ttd_param,      kDoubleV, 0, 0, -1 },
+    { "ttd_table.tables",&LTable,        kDoubleV, 0, 0 },    
+    { "ttd_table.nbins",&LNumBins,       kInt, 0, 1 },
+    { "ttd_table.low",  &LTLow,            kDouble, 0, 1 },
+    { "ttd_table.R",    &RCorr,          kDouble, 0, 1 },
+    { "ttd_table.theta0",&Theta0,        kDouble, 0, 1 },
     { "t0.res",         &fT0Resolution,  kDouble,  0, 1, -1 },
     { "clust.minsize",  &fMinClustSize,  kInt,     0, 1, -1 },
     { "clust.maxspan",  &fMaxClustSpan,  kInt,     0, 1, -1 },
@@ -287,11 +305,29 @@ Int_t THaVDCPlane::ReadDatabase( const TDatime& date )
     return kInitError;
   }
   // Set the converters parameters
-  fTTDConv->SetDriftVel( fDriftVel );
-  if( fTTDConv->SetParameters( ttd_param ) != 0 ) {
-    Error( Here(here), "Error initializing drift time-to-distance converter "
-	   "\"%s\". Check ttd.param in database.", s );
-    return kInitError;
+  
+
+  cout << "ttd_conv = " << ttd_conv << endl;
+  if(!ttd_conv.CompareTo("VDC::AnalyticTTDConv")){
+    cout << "Matched with AnalyticTTDConv " << endl;
+    fTTDConv->SetDriftVel( fDriftVel );
+    if( fTTDConv->SetParameters( ttd_param ) != 0 ) {
+      Error( Here(here), "Error initializing drift time-to-distance converter "
+	     "\"%s\". Check ttd.param in database.", s );
+      return kInitError;
+    }
+  }
+  else if (!ttd_conv.CompareTo("VDC::LookupTTDConv")){
+    cout << "Matched with LookupTTDConv " << endl;
+    fTTDConv->SetDriftVel( fDriftVel );
+    if(fTTDConv->SetLookupParams(LTable, LNumBins, LTLow, RCorr, Theta0) != 0){
+      Error( Here(here), "Error initializing (Lookup table) drift time-to-distance converter "
+	     "\"%s\". Check ttd_table entries in database.", s );
+      return kInitError;
+    }
+    else{
+      fTTDConv->PrintParameters();
+    }
   }
 
   // Initialize wires

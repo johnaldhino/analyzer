@@ -13,6 +13,7 @@
 #include "TClonesArray.h"
 #include "THaVDCHit.h"
 #include <cassert>
+#include <vector>
 
 namespace VDC {
   class TimeToDistConv;
@@ -119,6 +120,12 @@ protected:
 //   Int_t fNumBins;   // size of lookup table
 //   Float_t *fTable;  // time-to-distance lookup table
 
+  
+  // Lookup table parameters
+  std::vector<Float_t> fTable;// time-to-distance lookup table
+  Int_t fNumBins;   // size of lookup table
+  
+  
   VDC::TimeToDistConv* fTTDConv;  // Time-to-distance converter for this plane's wires
 
   THaVDC* fVDC;           // VDC detector to which this plane belongs

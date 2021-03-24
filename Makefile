@@ -215,6 +215,7 @@ SRC          := src/THaFormula.C src/THaVform.C src/THaVhist.C \
 		src/THaVDCWire.C src/THaVDCHit.C src/THaVDCCluster.C \
 		src/THaVDCTimeToDistConv.C src/THaVDCTrackID.C \
                 src/THaVDCAnalyticTTDConv.C \
+                src/THaVDCLookupTTDConv.C \
 		src/THaVDCPointPair.C src/VDCeff.C \
 		src/THaElectronKine.C src/THaReactionPoint.C \
 		src/THaReacPointFoil.C \

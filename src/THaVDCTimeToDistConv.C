@@ -35,6 +35,23 @@ Int_t TimeToDistConv::SetParameters( const vector<double>& )
   return 0;
 }
 
+
+// Int_t TimeToDistConv::PrintParameters(){
+  
+  
+//   }
+  
+
+Int_t TimeToDistConv::SetLookupParams( std::vector<Double_t> Table, Int_t NBins, Double_t Low, Double_t R, Double_t Theta){
+
+  fIsSet = true;
+  return 0;
+  
+}
+  
+
+
+  
 } // namespace VDC
 
 ////////////////////////////////////////////////////////////////////////////////
