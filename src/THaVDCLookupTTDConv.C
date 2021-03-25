@@ -60,13 +60,19 @@ Double_t LookupTTDConv::ConvertTimeToDist( Double_t time, Double_t tanTheta,
 
   // slope in analyzer is 1/m where m is gradient of slope
   tanTheta = TMath::ATan(1.0/tanTheta);
-  
-  if (dist >= R) {
-    dist += (R)*( (1/TMath::Cos(tanTheta) -  (1/TMath::Cos(fTheta0))));
 
-  } else if (dist < R ) { 
+  Double_t SecTheta = (1/TMath::Cos(tanTheta));
+  Double_t CosTheta = TMath::Cos(tanTheta);
+
+  Double_t SecTheta0 = (1/TMath::Cos(fTheta0));
+  
+
+  if (dist >= R*SecTheta0 ) {
+    dist += R*(SecTheta -  SecTheta0);
+
+  } else if (dist < R*SecTheta0 ) { 
     
-    dist *= (1/TMath::Cos(tanTheta) /  (1/TMath::Cos(fTheta0)) );
+    dist *= (SecTheta /  SecTheta0 );
   }
 		 
   return dist;

@@ -25,6 +25,7 @@ namespace VDC {
 
     virtual Double_t ConvertTimeToDist( Double_t time, Double_t tanTheta,
 					Double_t* ddist = 0 ) const = 0;
+    virtual Double_t ConvertDistToTime( Double_t dist, Double_t tanTheta) const = 0;
     Double_t         GetDriftVel() { return fDriftVel; }
     virtual Double_t GetParameter( UInt_t ) const { return kBig; }
     virtual Int_t    PrintParameters() const {return 0;} 
