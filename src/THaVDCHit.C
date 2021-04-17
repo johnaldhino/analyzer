@@ -34,6 +34,27 @@ Double_t THaVDCHit::ConvertTimeToDist(Double_t slope)
 
 }
 
+Double_t THaVDCHit::ConvertTimeToDist(Double_t slope, Double_t toff)
+{
+  // Converts TDC time to drift distance
+  // Takes the (estimated) slope of the track as an argument
+  // take timing offset as second argument
+
+  VDC::TimeToDistConv* ttdConv = (fWire) ? fWire->GetTTDConv() : NULL;
+
+  if (ttdConv) {
+    // If a time to distance algorithm exists, use it to convert the TDC time
+    // to the drift distance
+    fDist = ttdConv->ConvertTimeToDist(fTime-toff, slope, &fdDist);
+    //    fDist = ttdConv->ConvertTimeToDist(fTime+toff, slope, &fdDist);
+    return fDist;
+  }
+
+  Error("ConvertTimeToDist()", "No Time to dist algorithm available");
+  return 0.0;
+
+}
+
 //_____________________________________________________________________________
 Int_t THaVDCHit::Compare( const TObject* obj ) const
 {

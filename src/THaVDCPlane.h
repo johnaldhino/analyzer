@@ -103,7 +103,7 @@ protected:
   Double_t fMinTdiff;     // Min and Max limits of times between wires in cluster
   Double_t fMaxTdiff;
   Double_t fTDCRes;       // TDC Resolution ( s / channel)
-  Double_t fDriftVel;     // Drift velocity in the wire plane (m/s)
+  Double_t fDriftVel;     // Drift velocity in the wire plane (m/s)18
   Double_t fT0Resolution; // (Average) resolution of cluster time offset fit
 
   // Geometry
@@ -119,6 +119,11 @@ protected:
 //   Double_t fT0;     // calculated zero time
 //   Int_t fNumBins;   // size of lookup table
 //   Float_t *fTable;  // time-to-distance lookup table
+
+
+//  enum EFitMode {kLinear, kTwoParam, kThreeParam, kT0}; // type of fit to be used for cluster fitting: kLinear is two parameter fit done via standard formulae for linear regression, kTwoParam is a two parameter fit performed via minuit, kThreeParam is a three parameter fit performed via minuit, kT0 is a three parameter ift performed via standard formulae
+
+  THaVDCCluster::EFitMode fFitMode = THaVDCCluster::kLinear; // parameter to control parameter fitting type 
 
   
   // Lookup table parameters

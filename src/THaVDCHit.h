@@ -21,6 +21,7 @@ public:
   virtual ~THaVDCHit() {}
 
   virtual Double_t ConvertTimeToDist(Double_t slope);
+  virtual Double_t ConvertTimeToDist(Double_t slope, Double_t toff);
   Int_t  Compare ( const TObject* obj ) const;
   Bool_t IsSortable () const { return kTRUE; }
 

@@ -153,8 +153,8 @@ Int_t THaVDCPlane::ReadDatabase( const TDatime& date )
   vector<Int_t> detmap, bad_wirelist;
   vector<Double_t> ttd_param;
   vector<Float_t> tdc_offsets;
-  // TString ttd_conv = "AnalyticTTDConv";
-  TString ttd_conv = "LookupTTDConv";
+  TString ttd_conv = "AnalyticTTDConv";
+  // TString ttd_conv = "LookupTTDConv";
 
   
   // read lookup table
@@ -195,9 +195,10 @@ Int_t THaVDCPlane::ReadDatabase( const TDatime& date )
     { "ttd.param",      &ttd_param,      kDoubleV, 0, 0, -1 },
     { "ttd_table.tables",&LTable,        kDoubleV, 0, 0 },    
     { "ttd_table.nbins",&LNumBins,       kInt, 0, 1 },
-    { "ttd_table.low",  &LTLow,            kDouble, 0, 1 },
+    { "ttd_table.low",  &LTLow,          kDouble, 0, 1 },
     { "ttd_table.R",    &RCorr,          kDouble, 0, 1 },
     { "ttd_table.theta0",&Theta0,        kDouble, 0, 1 },
+    { "ttd.FitMode",    &fFitMode,       kInt, 0, 1 , 1},
     { "t0.res",         &fT0Resolution,  kDouble,  0, 1, -1 },
     { "clust.minsize",  &fMinClustSize,  kInt,     0, 1, -1 },
     { "clust.maxspan",  &fMaxClustSpan,  kInt,     0, 1, -1 },
@@ -306,6 +307,7 @@ Int_t THaVDCPlane::ReadDatabase( const TDatime& date )
   }
   // Set the converters parameters
   
+  
 
   cout << "ttd_conv = " << ttd_conv << endl;
   if(!ttd_conv.CompareTo("VDC::AnalyticTTDConv")){
@@ -380,6 +382,16 @@ Int_t THaVDCPlane::ReadDatabase( const TDatime& date )
   }
 #endif
 
+  cout << "Test reading of Lookup parameters for " << fPrefix << ":" << endl << endl;
+
+  cout << "Number of bins = " << LNumBins << endl;
+  cout << "Lowest time = " << LTLow << endl;
+  cout << "Number of values in lookup table: " << LTable.size() << endl;
+  cout << "R = " << RCorr << endl;
+  cout << "theta0 = " << Theta0 << endl;
+  cout << endl << endl;
+  
+  
   fIsInit = true;
   return kOK;
 }
@@ -473,6 +485,7 @@ Int_t THaVDCPlane::DefineVariables( EMode mode )
 
   // Register variables in global list
 
+  
   RVarDef vars[] = {
     { "nhit",   "Number of hits",             "GetNHits()" },
     { "wire",   "Active wire numbers",        "fHits.THaVDCHit.GetWireNum()" },
@@ -488,9 +501,11 @@ Int_t THaVDCPlane::DefineVariables( EMode mode )
     { "clsiz",  "Cluster sizes",              "fClusters.THaVDCCluster.GetSize()" },
     { "clpivot","Cluster pivot wire num",     "fClusters.THaVDCCluster.GetPivotWireNum()" },
     { "clpos",  "Cluster intercepts (m)",     "fClusters.THaVDCCluster.fInt" },
+    { "lclpos", "Cluster local intercepts (m)","fClusters.THaVDCCluster.fLocalInt" },
     { "slope",  "Cluster best slope",         "fClusters.THaVDCCluster.fSlope" },
     { "lslope", "Cluster local (fitted) slope","fClusters.THaVDCCluster.fLocalSlope" },
     { "t0",     "Timing offset (s)",          "fClusters.THaVDCCluster.fT0" },
+    { "t0_app",     "approximation of Timing offset (s)",          "fClusters.THaVDCCluster.fT0_app" },
     { "sigsl",  "Cluster slope error",        "fClusters.THaVDCCluster.fSigmaSlope" },
     { "sigpos", "Cluster position error (m)", "fClusters.THaVDCCluster.fSigmaInt" },
     { "sigt0",  "Timing offset error (s)",    "fClusters.THaVDCCluster.fSigmaT0" },
@@ -896,7 +911,8 @@ Int_t THaVDCPlane::FitTracks()
     clust->ConvertTimeToDist();
 
     // Fit drift distances to get intercept, slope.
-    clust->FitTrack();
+    //clust->FitTrack(THaVDCCluster::kSimple,fFitMode);
+    clust->FitTrack(THaVDCCluster::kWeighted,fFitMode);
 
 #ifdef CLUST_RAWDATA_HACK
     // HACK: write out cluster info for small-t0 clusters in u1

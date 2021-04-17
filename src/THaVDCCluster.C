@@ -13,6 +13,11 @@
 #include "THaTrack.h"
 #include "TMath.h"
 #include "TClass.h"
+#include "TROOT.h"
+
+#include "Math/Minimizer.h"
+#include "Math/Factory.h"
+#include "Math/Functor.h"
 
 #include <iostream>
 
@@ -114,15 +119,21 @@ void THaVDCCluster::EstTrackParameters()
   if( GetSize() == 0 )
     return;
 
+  //  cout << "Finding pivot time, cluster size = " << GetSize() << endl;
   // Find pivot
   Double_t time = 0, minTime = 1000;  // drift-times in seconds
   for (int i = 0; i < GetSize(); i++) {
     time = fHits[i]->GetTime();
+    // cout << "i = " << i << endl;
+    // cout << "time = " << time << endl;
     if (time < minTime) { // look for lowest time
       minTime = time;
       fPivot = fHits[i];
+      //      cout << "New pivot time" << endl;
     }
+    //    cout << "minTime = " << minTime << endl;
   }
+  //  cout << "fPivot = " << fPivot->GetTime() << endl << endl;
 
   // Now set intercept
   fInt = fPivot->GetPos();
@@ -198,8 +209,7 @@ void THaVDCCluster::CalcLocalDist()
       fHits[j]->SetLocalFitDist(TMath::Abs(X));
     } else {
       fHits[j]->SetLocalFitDist(kBig);
-    }
-  }
+    }  }
 }
 
 //_____________________________________________________________________________
@@ -212,7 +222,7 @@ Int_t THaVDCCluster::GetTrackIndex() const
 }
 
 //_____________________________________________________________________________
-void THaVDCCluster::FitTrack( EMode mode )
+void THaVDCCluster::FitTrack( EMode mode, EFitMode modeFit)
 {
   // Fit track to drift distances. Supports three modes:
   //
@@ -220,14 +230,30 @@ void THaVDCCluster::FitTrack( EMode mode )
   // kWeighted:  Linear fit with weights, ignore t0
   // kT0:        Fit t0, but ignore mulithits
 
-  switch( mode ) {
-  case kSimple:
-    FitSimpleTrack(false);
+
+  //  cout << "Selected fit type " << modeFit << endl;
+  
+  Bool_t WeightedFit =false;
+
+  if(mode){ // mode == 1 for weighted fit, 0 for unweighted
+    WeightedFit = true;
+  }
+  
+  switch( modeFit ) {
+  case kLinear:
+    //    cout << "Linear fit condition" << endl;
+    FitSimpleTrack(WeightedFit);
     break;
-  case kWeighted:
-    FitSimpleTrack(true);
+  case kTwoParam:
+    //    cout << "Two param condition" << endl;
+    FitTwoParamTrack(WeightedFit);
+    break;
+  case kThreeParam:
+    //    cout << "Three param condition" << endl;
+    FitThreeParamTrack(WeightedFit);
     break;
   case kT0:
+    //    cout << "t0 fit condition" << endl;
     LinearClusterFitWithT0();
     break;
   }
@@ -369,6 +395,321 @@ void THaVDCCluster::FitSimpleTrack( Bool_t weighted )
 
   fFitOK = true;
 }
+
+
+
+
+void THaVDCCluster::FitThreeParamTrack( Bool_t weighted )
+{
+  // Alternative linear fit which forms chi^2 between input time t and output time' obtained from linear fit and DDT (Drift Distance to Time) conversion of distances
+  // This means that linear slopes 
+  
+  //  cout << "Started Fitthreeparamtrack" << endl;
+  
+
+  fFitOK = false;
+  if( GetSize() < 5 ) { // should be 3
+    return;  // Too few hits to get meaningful results
+	     // Do keep current values of slope and intercept
+  }
+
+  Double_t m, sigmaM;  // Slope, St. Dev. in slope
+  Double_t b, sigmaB;  // Intercept, St. Dev in Intercept
+  Double_t d0, sigmaD0;
+
+  m = b = d0 = 0;
+  sigmaM = sigmaB = sigmaD0 = 0;
+  
+
+  fCoordT.clear();
+
+  Double_t bestFit = 0.0;
+
+  // Find the index of the pivot wire and copy distances into local arrays
+  // Note that as the index of the hits is increasing, the position of the
+  // wires is decreasing
+
+
+  // setting weights for initial fit
+
+  Double_t t_unc_abs = 1.92e-9; // absolute uncertainty in time (from fissum)
+  Double_t t_unc_rel = 0.0025; // relative uncertainty in time (estimate 2.5%)
+
+  Double_t t_piv = 0.0;
+
+  Int_t pivotNum = 0;
+  for (int i = 0; i < GetSize(); i++) {
+    if (fHits[i] == fPivot) {
+      pivotNum = i;
+    }    
+  }
+
+
+  //  cout << "Found pivot value " << endl;
+  
+  t_piv = fHits[pivotNum]->GetTime();
+
+  Double_t t_piv_prev = 0.0;
+  Double_t t_piv_post = 0.0;
+  Double_t toff_approx = 0.0;
+
+  if(pivotNum > 0 && pivotNum < GetSize()-1){
+    t_piv_prev = fHits[pivotNum-1]->GetTime(); // value of time after pivot
+    t_piv_post = fHits[pivotNum+1]->GetTime(); // value of time before pivot
+    toff_approx = (2*t_piv - TMath::Abs(t_piv_prev-t_piv_post))/2.;
+    fT0 = toff_approx;
+    fT0_app = toff_approx;
+  }
+  else{
+    fT0 = t_piv;
+  }
+
+  //  cout << "Found pivot, prev and post time values " << endl;
+  
+
+  
+  for (int i = 0; i < GetSize(); i++) {
+
+    // In order to take into account the varying uncertainty in the
+    // drift distance, we will be working with the X' and Y', and
+    //       Y' = F + G X'
+    //  where Y' = X, and X' = Y  (swapping it around)
+
+
+    Double_t x = fHits[i]->GetPos();
+    Double_t t = fHits[i]->GetTime();
+    Double_t w = 1.0;
+    Double_t slope_cen = 1.4; // central value of slope 
+
+    Double_t conv = fPlane->GetDriftVel();  // m/s
+    
+    if( weighted ) {
+      //      w = fHits[i]->GetdDist();
+
+      w = t_unc_rel*(t-fT0) + t_unc_abs; // uncertainty in time
+      // w = t_unc_rel*(t-t_piv); // uncertainty in time
+      w = w*(conv/(1/fSlope));
+      
+      // the hit will be ignored if the uncertainty is < 0
+      if (w>0)
+	w = 1./(w*w); // sigma^-2 is the weight
+      else
+	w = -1.;
+    } else {
+      w = 1.0;
+    }
+    fCoordT.push_back( FitCoordT_t(fHits[i],x,t,w) );    
+  }
+
+
+  const Int_t nSignCombos = 2; //Number of different sign combinations
+  for (int i = 0; i < nSignCombos; i++) {
+
+
+    // set times before crossover point as `negative'
+    // this removes ambiguity of fit
+    if (i == 0){
+      //      cout << "///////////////// Positive pivot /////////////////" << endl;
+      for (int j = pivotNum+1; j < GetSize(); j++){
+	//    	fCoordT[j].t *= -1;
+    	fCoordT[j].s = -1;
+      }
+    }
+    else if (i == 1){
+      //      fCoordT[pivotNum].t *= -1;
+      fCoordT[pivotNum].s = -1;
+      //      cout << "///////////////// Negative pivot /////////////////" << endl;
+    }
+
+
+    // if (i == 0)
+    //   for (int j = 0; j< pivotNum; j++){
+    // 	fCoordT[j].t *= -1;
+    // 	fCoordT[j].s = -1;
+    //   }
+    // else if (i == 1){
+    //   fCoordT[pivotNum].t *= -1;
+    //   fCoordT[pivotNum].s = -1;      
+    // }
+
+    
+    //    cout << "reached up until threeparamfit" << endl;
+    
+    //    chi2_t chi2 = CalcChiSquareTwoParam();
+    chi2_t chi2 =  ThreeParamFit(m,b,d0);
+
+    //    cout << "reached after threeparamfit" << endl;
+
+    // cout << "i = " << i << endl;
+    // cout << "chi2.first = " << chi2.first << endl;
+    // cout << "m = " << m << ", b = " << b << ", d0 = " << d0 << endl;
+    
+    //    chi2_t chi2 = CalcChisquareTwoParam( m, b , 0 );
+    
+    //    m = 1/m;
+    
+    
+    if (i == 0 || chi2.first < bestFit) {
+      bestFit        = fChi2 = chi2.first;
+      fNDoF       = chi2.second - 3;
+      fLocalSlope = m;
+      fInt        = b;
+      fLocalInt   = b;
+      fT0         = d0;
+      fSigmaSlope = sigmaM;
+      fSigmaInt   = sigmaB;
+      fSigmaLocalInt   = sigmaB;
+      fSigmaT0    = sigmaD0;
+    }
+    else{
+      // case where first fit with positive pivot wire (track above plane) has smaller chi^2
+      // redo CalcChiSquareThreeParam to get correct local distances for hit
+
+      
+      Double_t xs[3] = {0};
+      xs[0] = fLocalSlope;
+      xs[1] = fLocalInt;
+      xs[2] = fT0;
+      fCoordT[pivotNum].s = 1;
+      Double_t chi2 = fcn_3P(xs);
+      //      chi2_t chi2 =  ThreeParamFit(m,b,d0);
+      
+    }
+    
+    //    cout << "Set global cluster values" << endl;
+    
+  }
+
+  //  cout << "fLocalSlope  = " << fLocalSlope << ", fInt = " << fInt << ", fT0 = " << fT0 << endl << endl;
+  
+  // cout << "fLocalSlope = " << fLocalSlope << endl;
+  // cout << "fInt = " << fInt << endl << endl;
+
+  //  cout << endl << endl;
+   
+fFitOK = true;
+}
+
+
+
+void THaVDCCluster::FitTwoParamTrack( Bool_t weighted )
+{
+  // Alternative linear fit which forms chi^2 between input time t and output time' obtained from linear fit and DDT (Drift Distance to Time) conversion of distances
+  // This means that linear slopes 
+  
+
+  
+
+  fFitOK = false;
+  if( GetSize() < 3 ) {
+    return;  // Too few hits to get meaningful results
+	     // Do keep current values of slope and intercept
+  }
+
+  Double_t m, sigmaM;  // Slope, St. Dev. in slope
+  Double_t b, sigmaB;  // Intercept, St. Dev in Intercept
+  Double_t d0, sigmaD0;
+
+  sigmaM = sigmaB = sigmaD0 = 0;
+  
+
+  fCoordT.clear();
+
+  Double_t bestFit = 0.0;
+
+  // Find the index of the pivot wire and copy distances into local arrays
+  // Note that as the index of the hits is increasing, the position of the
+  // wires is decreasing
+
+  Int_t pivotNum = 0;
+  for (int i = 0; i < GetSize(); i++) {
+
+    // In order to take into account the varying uncertainty in the
+    // drift distance, we will be working with the X' and Y', and
+    //       Y' = F + G X'
+    //  where Y' = X, and X' = Y  (swapping it around)
+    if (fHits[i] == fPivot) {
+      pivotNum = i;
+    }
+
+    Double_t x = fHits[i]->GetPos();
+    Double_t t = fHits[i]->GetTime();
+    Double_t w;
+    if( weighted ) {
+      w = fHits[i]->GetdDist();
+      // the hit will be ignored if the uncertainty is < 0
+      if (w>0)
+	w = 1./(w*w); // sigma^-2 is the weight
+      else
+	w = -1.;
+    } else {
+      w = 1.0;
+    }
+    fCoordT.push_back( FitCoordT_t(fHits[i],x,t,w) );    
+  }
+
+
+  const Int_t nSignCombos = 2; //Number of different sign combinations
+  for (int i = 0; i < nSignCombos; i++) {
+
+
+
+    // set times before crossover point as `negative'
+    // this removes ambiguity of fit
+    if (i == 0)
+      for (int j = pivotNum+1; j < GetSize(); j++){
+	//    	fCoordT[j].t *= -1;
+    	fCoordT[j].s = -1;
+      }
+    else if (i == 1){
+      //      fCoordT[pivotNum].t *= -1;
+      fCoordT[pivotNum].s = -1;      
+    }
+
+
+    // if (i == 0)
+    //   for (int j = 0; j< pivotNum; j++){
+    // 	fCoordT[j].t *= -1;
+    // 	fCoordT[j].s = -1;
+    //   }
+    // else if (i == 1){
+    //   fCoordT[pivotNum].t *= -1;
+    //   fCoordT[pivotNum].s = -1;      
+    // }
+
+    
+    
+    //    chi2_t chi2 = CalcChiSquareTwoParam();
+   chi2_t chi2 =  TwoParamFit(m,b);
+
+   // cout << "i = " << i << endl;
+   // cout << "chi2.first = " << chi2.first << endl;
+   // cout << "m = " << m << ", b = " << b << endl;
+
+   //    chi2_t chi2 = CalcChisquareTwoParam( m, b , 0 );
+
+   //    m = 1/m;
+
+    
+    if (i == 0 || chi2.first < bestFit) {
+      bestFit        = fChi2 = chi2.first;
+      fNDoF       = chi2.second - 3;
+      fLocalSlope = m;
+      fInt        = b;
+      fT0         = 0;
+      fSigmaSlope = sigmaM;
+      fSigmaInt   = sigmaB;
+      fSigmaT0    = sigmaD0;
+    }
+  }
+
+  // cout << "fLocalSlope = " << fLocalSlope << endl;
+  // cout << "fInt = " << fInt << endl << endl;
+
+  fFitOK = true;
+}
+
+
 
 //_____________________________________________________________________________
 Int_t THaVDCCluster::LinearClusterFitWithT0()
@@ -625,6 +966,281 @@ chi2_t THaVDCCluster::CalcChisquare( Double_t slope, Double_t icpt,
   }
   return make_pair( chi2, npt );
 }
+
+
+// chi2_t THaVDCCluster::CalcChisquareTwoParam( Double_t slope, Double_t icpt,
+// 				     Double_t d0 ) const
+// {
+//   Int_t npt = 0;
+//   Double_t chi2 = 0;
+//   for( int j = 0; j < GetSize(); ++j ) {
+    
+//     if( w < 0 ) continue;
+//     Double_t d  = y-yp;
+//     chi2       += d*d*w;
+//     ++npt;
+//   }
+//   return make_pair( chi2, npt );
+// }
+
+
+
+
+Double_t THaVDCCluster::fcn_3P(const Double_t* par) {
+  
+  Double_t chisq = 0.0;
+  Double_t delta = 0.0;
+  // Double_t delta_2 = 0.0;
+  // Double_t chisq_2 = 0.0;
+  
+  //  cout << "Start of chi^2 func" << endl;
+
+  Double_t y = 0.0;
+  Double_t x_alt = 0.0;
+
+  
+  const Double_t slope = par[0];
+  const Double_t intercept = par[1];
+  const Double_t toff = par[2];
+  
+  for (Int_t i=0; i<fCoordT.size(); i++) {
+
+    // if(fHits[i] == fPivot){
+    if(fCoordT[i].hit == fPivot){
+      //      cout << "~~~~~~~~ Pivot ~~~~~~~~" << endl;
+      continue;
+    }
+    
+    
+    
+    //    y = fHits[i]->ConvertTimeToDist(slope,toff);
+    //    y = fCoordT[i].hit->ConvertTimeToDist(slope,toff);
+    y = fCoordT[i].hit->ConvertTimeToDist(slope,toff-fT0_fake);
+
+    
+    //    Double_t y = fHits[i]->ConvertTimeToDist(fSlope,par[2]) + fTimeCorrection;
+   
+
+
+    y *= fCoordT[i].s;
+
+    // cout << "sign = " << fCoordT[i].s << endl;
+    // cout << "y = " << y << ", t = " << fHits[i]->GetTime() << ", t-par[2]( " << par[2] << ") = "<< fHits[i]->GetTime() - par[2] <<  endl;
+    
+    x_alt = (y*slope) + intercept;
+    
+    //    cout << "x = " << fHits[i]->GetPos() << ", x_alt = " << x_alt << " = y (" << y << ")/par[0] (" << par[0] << ") + par[1] (" << par[1] << "), par[2] = " << par[2] << endl;
+
+    
+    delta = fHits[i]->GetPos() - x_alt;
+    //    cout << "w = " << fCoordT[i].w << endl;
+    chisq += (delta*delta)*fCoordT[i].w;
+    //    chisq += (delta*delta);
+    
+
+    // cout << "delta = " << delta << endl;
+    // cout << "Chisq addition = " << (delta*delta)*fCoordT[i].w << endl;
+    // cout << "chisq = " << chisq << endl;
+    
+    // alternative formulation of chi^2 (equivalent)
+    //    Double_t y_alt = par[0]*(fHits[i]->GetPos() - par[1]);
+    //    delta = y - y_alt;
+    //    chisq_2 += delta_2*delta_2;
+  }
+  
+  //   cout << "chisq = " << chisq << endl<< endl;
+   //   cout << "chisq_2 = " << chisq_2 << endl;
+  
+  return chisq;
+}
+
+
+Double_t THaVDCCluster::fcn_2P(const Double_t* par) {
+  
+  Double_t chisq = 0.0;
+  Double_t delta = 0.0;
+  // Double_t delta_2 = 0.0;
+  // Double_t chisq_2 = 0.0;
+  
+  //  cout << "Start of chi^2 func" << endl;
+  
+  for (Int_t i=0; i<GetSize(); i++) {
+    //    Double_t y = fPlane->fTTDConv()->ConvertTimeToDist(fCoordT[i].t-par[2],par[1]);    
+    //        virtual Double_t ConvertTimeToDist( Double_t time, Double_t tanTheta,
+    //			Double_t* ddist = 0 ) const = 0;
+    // retrieve x from fit of y
+
+    //    Double_t y = fHits[i]->ConvertTimeToDist(par[1],par[2]);
+
+    if(fHits[i] == fPivot){
+      cout << "~~~~~~~~ Pivot ~~~~~~~~" << endl;
+    }
+    
+    Double_t y = fHits[i]->ConvertTimeToDist(par[0]) + fTimeCorrection;
+    //    Double_t y_2 = fHits[i]->ConvertTimeToDist(par[0]) + fTimeCorrection;
+    //    Double_t y = fHits[i]->ConvertTimeToDist(par[0]) + fTimeCorrection;
+    //Double_t y = fHits[i]->ConvertTimeToDist(fSlope) + fTimeCorrection;
+    // cout << "y = " << y << ", t = " << fHits[i]->GetTime() << endl;
+    // cout << "sign = " << fCoordT[i].s << endl;
+    y *= fCoordT[i].s;
+    //    y_2 *= fCoordT[i].s;
+
+    // cout << "y = " << y << ", t = " << fHits[i]->GetTime() << endl;
+    // cout << "y_2 = " << y_2 << ", t = " << fHits[i]->GetTime() - par[2] << endl;
+    
+    Double_t x_alt = (y*par[0]) + par[1];
+    //    Double_t x_alt_2 = (y_2*par[0]) + par[1];
+
+    //Double_t y_alt = par[0]*(fHits[i]->GetPos() - par[1]);
+    
+
+    //    cout << "x = " << fHits[i]->GetPos() << ", x_alt = " << x_alt << " = y (" << y << ")/par[0] (" << par[0] << ") + par[1] (" << par[1] << ")" << endl;
+    //    cout << "x = " << fHits[i]->GetPos() << ", x_alt_2 = " << x_alt_2 << " = y_2 (" << y_2 << ")/par[0] (" << par[0] << ") + par[1] (" << par[1] << "), par[2] = " << par[2] << endl;
+    
+    delta = fHits[i]->GetPos() - x_alt;
+    //    delta_2 = fHits[i]->GetPos() - x_alt_2;
+    //    delta = y - y_alt;
+    //    cout << "delta = " << delta << endl;
+    // cout << "delta_2 = " << delta_2 << endl << endl;
+    chisq += delta*delta;
+    //    chisq_2 += delta_2*delta_2;
+  }
+
+  // cout << "chisq = " << chisq << endl;
+  // cout << "chisq_2 = " << chisq_2 << endl;
+  
+  return chisq;
+}
+
+
+
+//_____________________________________________________________________________
+VDC::chi2_t THaVDCCluster::ThreeParamFit( Double_t& slope, Double_t& icpt, Double_t& t)
+{
+  // Int_t npt = 0;
+  // Double_t chi2 = 0;
+
+
+  //  ROOT::Math::Minimizer* min = ROOT::Math::Factory::CreateMinimizer("Minuit2", "Scan");
+  ROOT::Math::Minimizer* min = ROOT::Math::Factory::CreateMinimizer("Minuit2", "Migrad");
+  
+  //  min->SetTolerance(0.001);
+  min->SetTolerance(10);
+  min->SetMaxFunctionCalls(1000000); // for Minuit/Minuit2
+  min->SetMaxIterations(10000);  // for GSL
+  min->SetPrintLevel(0); // 3
+
+  const Int_t NPara = 3;
+ // const Int_t NPara = 2;
+
+
+  //   ROOT::Math::Functor f(&fcn,NPara);
+  //  THaVDCCluster*  thisClust = this;
+
+  //  THaVDCCluster Cluster; 
+  ROOT::Math::Functor f(this,&THaVDCCluster::fcn_3P,NPara);
+  //  ROOT::Math::Functor f(thisClust,THaVDCCluster::fcn,NPara); 
+
+  
+  min->SetFunction(f);
+  //  cout << endl;
+
+
+  //  min->SetLimitedVariable(0, "slope", 1/fSlope, 0.001, 0.8, 2.2);
+  //  min->SetLimitedVariable(0, "slope", fSlope, 0.01, 1e-5, 5.0); // current
+  min->SetLimitedVariable(0, "slope", fSlope, 0.2, 1e-5, 5.0);
+  min->SetLimitedVariable(1, "intercept", fInt, 4.2426e-2, -1.7852, 1.77852);
+  //  min->SetLimitedVariable(2, "toff", 0, 1e-10, -3e-7, 0.9*fPivot->GetTime());
+  //  min->SetLimitedVariable(2, "toff", fT0, 1e-10, -4e-7, 0.99*fPivot->GetTime());
+  min->SetLimitedVariable(2, "toff", fT0, 5e-9, -8e-7,8e-7);
+
+  min->Minimize();
+
+  const double *xs = min->X();
+
+  slope = xs[0];
+  icpt = xs[1];
+  //  t = xs[2];
+  t = xs[2] - fT0_fake;
+  //  t = 0.0;
+
+  // cout << "~~~~~~~~~~~~~~~~~~~~~~" << endl;
+  // cout << "Results from three param fit:" << endl;
+  // cout << "m = " << slope << ", icpt = " << icpt << ", t = " << t << endl;
+  // cout << "Minimimum achieved = " << min->MinValue() << endl;
+  // cout << "~~~~~~~~~~~~~~~~~~~~~~" << endl;
+  
+
+  Double_t chi2 = fcn_3P(xs);
+  
+  Int_t npt = 0;
+  for( int j = 0; j < GetSize(); ++j ) {
+    Double_t w  = fCoord[j].w;
+    if( w < 0 ) continue;
+    ++npt;
+  }
+  
+   return make_pair( chi2, npt );
+}
+
+
+//_____________________________________________________________________________
+VDC::chi2_t THaVDCCluster::TwoParamFit( Double_t& slope, Double_t& icpt)
+{
+  // Int_t npt = 0;
+  // Double_t chi2 = 0;
+
+
+  ROOT::Math::Minimizer* min = ROOT::Math::Factory::CreateMinimizer("Minuit2", "Migrad");
+  
+  //  min->SetTolerance(0.001);
+  min->SetTolerance(1e-7);
+  min->SetMaxFunctionCalls(1000000); // for Minuit/Minuit2
+  min->SetMaxIterations(10000);  // for GSL
+  min->SetPrintLevel(2);
+
+
+  const Int_t NPara = 2;
+
+
+  //   ROOT::Math::Functor f(&fcn,NPara);
+  //  THaVDCCluster*  thisClust = this;
+
+  //  THaVDCCluster Cluster; 
+  ROOT::Math::Functor f(this,&THaVDCCluster::fcn_2P,NPara);
+  //  ROOT::Math::Functor f(thisClust,THaVDCCluster::fcn,NPara); 
+  
+  min->SetFunction(f);
+
+
+  //  min->SetLimitedVariable(0, "slope", 1/fSlope, 0.001, 0.8, 2.2);
+  min->SetLimitedVariable(0, "slope", fSlope, 0.001, 0.01, 2.0);
+  min->SetLimitedVariable(1, "intercept", fInt, 4.2426e-5, -1.7852, 1.77852);
+  // min->SetLimitedVariable(2, "toff", 0, 1e-10, -3e-7, 0.9*fPivot->GetTime());
+  //  min->SetLimitedVariable(2, "toff", 1e-9, 1e-10, -3e-7, 3e-7);
+
+  min->Minimize();
+
+  const double *xs = min->X();
+
+  slope = xs[0];
+  icpt = xs[1];
+  //  t = xs[2];
+  //  t = 0.0;
+
+
+  Double_t chi2 = fcn_2P(xs);
+  
+  Int_t npt = 0;
+  for( int j = 0; j < GetSize(); ++j ) {
+    Double_t w  = fCoord[j].w;
+    if( w < 0 ) continue;
+    ++npt;
+  }
+  
+   return make_pair( chi2, npt );
+}
+
 
 //_____________________________________________________________________________
 void THaVDCCluster::DoCalcChisquare( Double_t& chi2, Int_t& nhits,

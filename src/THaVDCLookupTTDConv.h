@@ -27,7 +27,7 @@ namespace VDC {
     virtual Double_t ConvertTimeToDist( Double_t time, Double_t tanTheta,
 				        Double_t* ddist=0 ) const;
 
-    virtual Double_t ConvertDistToTime( Double_t dist, Double_t tanTheta) const = 0;
+    //    virtual Double_t ConvertDistToTime( Double_t dist, Double_t tanTheta) const = 0;
     
     Double_t GetLookupVal( Double_t time) const;
 

@@ -23,10 +23,22 @@ namespace VDC {
     Double_t x, y, w;
     Int_t s;
   };
+  struct FitCoordT_t {
+    FitCoordT_t( THaVDCHit* _hit,Double_t _x, Double_t _t, Double_t _w = 1.0, Int_t _s = 1 )
+      : hit(_hit), x(_x), t(_t), w(_w), s(_s) {}
+    THaVDCHit* hit;
+    Double_t x, t, w;
+    Int_t s;    
+    };
+
+  //  FitCoordT_t( Double_t _x, Double_t _t, Double_t _w = 1.0, Int_t _s = 1 )
+  //  VDC::Vhit_t    fHits;              // Hits associated w/this cluster
+  
   typedef std::pair<Double_t,Int_t>  chi2_t;
   typedef THaVDCPointPair VDCpp_t;
   typedef std::vector<THaVDCHit*> Vhit_t;
   typedef std::vector<FitCoord_t> Vcoord_t;
+  typedef std::vector<FitCoordT_t> VcoordT_t;
 
   extern const Double_t kBig;
 
@@ -44,12 +56,14 @@ public:
   THaVDCCluster( THaVDCPlane* owner = 0 );
   virtual ~THaVDCCluster() {}
 
-  enum EMode { kSimple, kWeighted, kT0 };
+  //  enum EMode { kSimple, kWeighted, kT0 };
+  enum EMode { kSimple, kWeighted};
+  enum EFitMode {kLinear, kTwoParam, kThreeParam, kT0}; // type of fit to be used for cluster fitting: kLinear is two parameter fit done via standard formulae for linear regression, kTwoParam is a two parameter fit performed via minuit, kThreeParam is a three parameter fit performed via minuit, kT0 is a three parameter ift performed via standard formulae
 
   virtual void   AddHit( THaVDCHit* hit );
   virtual void   EstTrackParameters();
   virtual void   ConvertTimeToDist();
-  virtual void   FitTrack( EMode mode = kSimple );
+  virtual void   FitTrack( EMode mode = kSimple,  EFitMode modeFit = kLinear);
   virtual void   ClearFit();
   virtual void   CalcChisquare(Double_t& chi2, Int_t& nhits) const;
   VDC::chi2_t    CalcDist();    // calculate global track to wire distances
@@ -103,7 +117,10 @@ protected:
   Double_t       fLocalSlope;        // Fitted slope, from FitTrack()
   Double_t       fSigmaSlope;        // Error estimate of fLocalSlope from fit
   Double_t       fInt, fSigmaInt;    // Intercept and error estimate
+  Double_t       fLocalInt, fSigmaLocalInt;    // Local Intercept and error estimate    
   Double_t       fT0, fSigmaT0;      // Fitted common timing offset and error
+  Double_t       fT0_app;      // estimate common timing offset 
+  Double_t       fT0_fake = 2e-7;           // fake offset added at start of fitting and removed to get result (200 ns) 
   THaVDCHit*     fPivot;             // Pivot - hit with smallest drift time
   //FIXME: in the code, this is used as a distance correction!!
   Double_t       fTimeCorrection;    // correction to be applied when fitting
@@ -116,6 +133,7 @@ protected:
 
   // Workspace for fitting routines
   VDC::Vcoord_t  fCoord;             // coordinates to be fit
+  VDC::VcoordT_t  fCoordT;            // alternative coordinates to be fit (time for each hit inlclded)
 
   void   CalcLocalDist();     // calculate the local track to wire distances
 
@@ -123,8 +141,20 @@ protected:
   void   FitNLTrack();        // Non-linear 3-parameter fit
 
   VDC::chi2_t CalcChisquare( Double_t slope, Double_t icpt, Double_t d0 ) const;
+  //  VDC::chi2_t CalcChisquareTwoParam( Double_t slope, Double_t icpt, Double_t d0 ) const;
   void   DoCalcChisquare( Double_t& chi2, Int_t& nhits,
 			  Double_t slope, bool do_print = false ) const;
+  
+  void   FitTwoParamTrack( Bool_t weighted = false );
+  //  VDC::chi2_t CalcChisquareTwoParam( Double_t slope, Double_t icpt, Double_t d0 ) const;
+  VDC::chi2_t TwoParamFit( Double_t& slope, Double_t& icpt);
+  Double_t fcn_2P(const Double_t* par);
+  
+  void   FitThreeParamTrack( Bool_t weighted = false );
+  //  VDC::chi2_t CalcChisquareTwoParam( Double_t slope, Double_t icpt, Double_t d0 ) const;
+  VDC::chi2_t ThreeParamFit( Double_t& slope, Double_t& icpt, Double_t& d0 );
+  Double_t fcn_3P(const Double_t* par);
+  
   void   Linear3DFit( Double_t& slope, Double_t& icpt, Double_t& d0 ) const;
   Int_t  LinearClusterFitWithT0();
 

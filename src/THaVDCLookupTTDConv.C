@@ -86,8 +86,15 @@ Double_t LookupTTDConv::GetLookupVal( Double_t time) const{
   time -= LowTime;
   
   Int_t bin_no = time/(bin_res);
-  Double_t dist = LTable[bin_no];
-  
+
+  Double_t dist = 0.0;
+  if(time >= 0){
+    dist = LTable[bin_no];
+  }
+  else{
+    dist = 1e8;
+  }
+
   return dist;  
 }
 
