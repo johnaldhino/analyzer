@@ -11,6 +11,12 @@
 #include <utility>
 #include <vector>
 
+#include "Math/Minimizer.h"
+#include "Math/Factory.h"
+#include "Math/Functor.h"
+#include "Minuit2/Minuit2Minimizer.h"
+
+
 class THaVDCHit;
 class THaVDCPlane;
 class THaVDCPointPair;
@@ -54,7 +60,12 @@ class THaVDCCluster : public TObject {
 public:
 
   THaVDCCluster( THaVDCPlane* owner = 0 );
-  virtual ~THaVDCCluster() {}
+  //  virtual ~THaVDCCluster() {}
+
+  ~THaVDCCluster() {
+    delete fmin;
+    delete func;
+  }
 
   //  enum EMode { kSimple, kWeighted, kT0 };
   enum EMode { kSimple, kWeighted};
@@ -106,6 +117,14 @@ public:
   void           SetTrack( THaTrack* track );
 
 protected:
+
+  // minimiser
+  ROOT::Minuit2::Minuit2Minimizer* fmin;
+
+  ROOT::Math::Functor* func;
+
+  const Int_t NPara = 3;
+  
   VDC::Vhit_t    fHits;              // Hits associated w/this cluster
   THaVDCPlane*   fPlane;             // Plane the cluster belongs to
   VDC::VDCpp_t*  fPointPair;         // Lower/upper combo we're assigned to
@@ -120,7 +139,7 @@ protected:
   Double_t       fLocalInt, fSigmaLocalInt;    // Local Intercept and error estimate    
   Double_t       fT0, fSigmaT0;      // Fitted common timing offset and error
   Double_t       fT0_app;      // estimate common timing offset 
-  Double_t       fT0_fake = 2e-7;           // fake offset added at start of fitting and removed to get result (200 ns) 
+  Double_t       fT0_fake = 2e-7;           // fake offset added at start of fitting and removed to get result (200 ns)
   THaVDCHit*     fPivot;             // Pivot - hit with smallest drift time
   //FIXME: in the code, this is used as a distance correction!!
   Double_t       fTimeCorrection;    // correction to be applied when fitting

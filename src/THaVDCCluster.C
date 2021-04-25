@@ -18,6 +18,7 @@
 #include "Math/Minimizer.h"
 #include "Math/Factory.h"
 #include "Math/Functor.h"
+#include "Minuit2/Minuit2Minimizer.h"
 
 #include <iostream>
 
@@ -39,6 +40,17 @@ THaVDCCluster::THaVDCCluster( THaVDCPlane* owner )
 
   fHits.reserve(kDefaultNHit);
   fCoord.reserve(kDefaultNHit);
+  fCoordT.reserve(kDefaultNHit);
+
+
+  fmin =  new ROOT::Minuit2::Minuit2Minimizer(ROOT::Minuit2::kMigrad);
+  fmin->SetTolerance(10);
+  fmin->SetMaxFunctionCalls(10000); // for Minuit/Minuit2
+  fmin->SetMaxIterations(1000);  // for GSL
+  fmin->SetPrintLevel(0); // 3
+
+  func = new ROOT::Math::Functor(this,&THaVDCCluster::fcn_3P,NPara);
+  fmin->SetFunction(*func);
 }
 
 //_____________________________________________________________________________
@@ -401,11 +413,7 @@ void THaVDCCluster::FitSimpleTrack( Bool_t weighted )
 
 void THaVDCCluster::FitThreeParamTrack( Bool_t weighted )
 {
-  // Alternative linear fit which forms chi^2 between input time t and output time' obtained from linear fit and DDT (Drift Distance to Time) conversion of distances
-  // This means that linear slopes 
-  
-  //  cout << "Started Fitthreeparamtrack" << endl;
-  
+  // Alternative fit which forms chi^2 between wire position x and output x' obtained with 3 parameters: slope, intercept and t0 (timing offset)      
 
   fFitOK = false;
   if( GetSize() < 5 ) { // should be 3
@@ -444,8 +452,6 @@ void THaVDCCluster::FitThreeParamTrack( Bool_t weighted )
     }    
   }
 
-
-  //  cout << "Found pivot value " << endl;
   
   t_piv = fHits[pivotNum]->GetTime();
 
@@ -464,17 +470,8 @@ void THaVDCCluster::FitThreeParamTrack( Bool_t weighted )
     fT0 = t_piv;
   }
 
-  //  cout << "Found pivot, prev and post time values " << endl;
-  
-
   
   for (int i = 0; i < GetSize(); i++) {
-
-    // In order to take into account the varying uncertainty in the
-    // drift distance, we will be working with the X' and Y', and
-    //       Y' = F + G X'
-    //  where Y' = X, and X' = Y  (swapping it around)
-
 
     Double_t x = fHits[i]->GetPos();
     Double_t t = fHits[i]->GetTime();
@@ -484,7 +481,6 @@ void THaVDCCluster::FitThreeParamTrack( Bool_t weighted )
     Double_t conv = fPlane->GetDriftVel();  // m/s
     
     if( weighted ) {
-      //      w = fHits[i]->GetdDist();
 
       w = t_unc_rel*(t-fT0) + t_unc_abs; // uncertainty in time
       // w = t_unc_rel*(t-t_piv); // uncertainty in time
@@ -511,42 +507,14 @@ void THaVDCCluster::FitThreeParamTrack( Bool_t weighted )
     if (i == 0){
       //      cout << "///////////////// Positive pivot /////////////////" << endl;
       for (int j = pivotNum+1; j < GetSize(); j++){
-	//    	fCoordT[j].t *= -1;
     	fCoordT[j].s = -1;
       }
     }
     else if (i == 1){
-      //      fCoordT[pivotNum].t *= -1;
       fCoordT[pivotNum].s = -1;
-      //      cout << "///////////////// Negative pivot /////////////////" << endl;
     }
 
-
-    // if (i == 0)
-    //   for (int j = 0; j< pivotNum; j++){
-    // 	fCoordT[j].t *= -1;
-    // 	fCoordT[j].s = -1;
-    //   }
-    // else if (i == 1){
-    //   fCoordT[pivotNum].t *= -1;
-    //   fCoordT[pivotNum].s = -1;      
-    // }
-
-    
-    //    cout << "reached up until threeparamfit" << endl;
-    
-    //    chi2_t chi2 = CalcChiSquareTwoParam();
     chi2_t chi2 =  ThreeParamFit(m,b,d0);
-
-    //    cout << "reached after threeparamfit" << endl;
-
-    // cout << "i = " << i << endl;
-    // cout << "chi2.first = " << chi2.first << endl;
-    // cout << "m = " << m << ", b = " << b << ", d0 = " << d0 << endl;
-    
-    //    chi2_t chi2 = CalcChisquareTwoParam( m, b , 0 );
-    
-    //    m = 1/m;
     
     
     if (i == 0 || chi2.first < bestFit) {
@@ -572,22 +540,11 @@ void THaVDCCluster::FitThreeParamTrack( Bool_t weighted )
       xs[2] = fT0;
       fCoordT[pivotNum].s = 1;
       Double_t chi2 = fcn_3P(xs);
-      //      chi2_t chi2 =  ThreeParamFit(m,b,d0);
-      
     }
-    
-    //    cout << "Set global cluster values" << endl;
-    
   }
 
-  //  cout << "fLocalSlope  = " << fLocalSlope << ", fInt = " << fInt << ", fT0 = " << fT0 << endl << endl;
-  
-  // cout << "fLocalSlope = " << fLocalSlope << endl;
-  // cout << "fInt = " << fInt << endl << endl;
 
-  //  cout << endl << endl;
-   
-fFitOK = true;
+  fFitOK = true;
 }
 
 
@@ -968,32 +925,11 @@ chi2_t THaVDCCluster::CalcChisquare( Double_t slope, Double_t icpt,
 }
 
 
-// chi2_t THaVDCCluster::CalcChisquareTwoParam( Double_t slope, Double_t icpt,
-// 				     Double_t d0 ) const
-// {
-//   Int_t npt = 0;
-//   Double_t chi2 = 0;
-//   for( int j = 0; j < GetSize(); ++j ) {
-    
-//     if( w < 0 ) continue;
-//     Double_t d  = y-yp;
-//     chi2       += d*d*w;
-//     ++npt;
-//   }
-//   return make_pair( chi2, npt );
-// }
-
-
-
 
 Double_t THaVDCCluster::fcn_3P(const Double_t* par) {
   
   Double_t chisq = 0.0;
   Double_t delta = 0.0;
-  // Double_t delta_2 = 0.0;
-  // Double_t chisq_2 = 0.0;
-  
-  //  cout << "Start of chi^2 func" << endl;
 
   Double_t y = 0.0;
   Double_t x_alt = 0.0;
@@ -1005,51 +941,18 @@ Double_t THaVDCCluster::fcn_3P(const Double_t* par) {
   
   for (Int_t i=0; i<fCoordT.size(); i++) {
 
-    // if(fHits[i] == fPivot){
     if(fCoordT[i].hit == fPivot){
-      //      cout << "~~~~~~~~ Pivot ~~~~~~~~" << endl;
       continue;
     }
-    
-    
-    
-    //    y = fHits[i]->ConvertTimeToDist(slope,toff);
-    //    y = fCoordT[i].hit->ConvertTimeToDist(slope,toff);
+
     y = fCoordT[i].hit->ConvertTimeToDist(slope,toff-fT0_fake);
-
     
-    //    Double_t y = fHits[i]->ConvertTimeToDist(fSlope,par[2]) + fTimeCorrection;
-   
-
-
     y *= fCoordT[i].s;
 
-    // cout << "sign = " << fCoordT[i].s << endl;
-    // cout << "y = " << y << ", t = " << fHits[i]->GetTime() << ", t-par[2]( " << par[2] << ") = "<< fHits[i]->GetTime() - par[2] <<  endl;
-    
     x_alt = (y*slope) + intercept;
-    
-    //    cout << "x = " << fHits[i]->GetPos() << ", x_alt = " << x_alt << " = y (" << y << ")/par[0] (" << par[0] << ") + par[1] (" << par[1] << "), par[2] = " << par[2] << endl;
-
-    
     delta = fHits[i]->GetPos() - x_alt;
-    //    cout << "w = " << fCoordT[i].w << endl;
-    chisq += (delta*delta)*fCoordT[i].w;
-    //    chisq += (delta*delta);
-    
-
-    // cout << "delta = " << delta << endl;
-    // cout << "Chisq addition = " << (delta*delta)*fCoordT[i].w << endl;
-    // cout << "chisq = " << chisq << endl;
-    
-    // alternative formulation of chi^2 (equivalent)
-    //    Double_t y_alt = par[0]*(fHits[i]->GetPos() - par[1]);
-    //    delta = y - y_alt;
-    //    chisq_2 += delta_2*delta_2;
+    chisq += (delta*delta)*fCoordT[i].w;    
   }
-  
-  //   cout << "chisq = " << chisq << endl<< endl;
-   //   cout << "chisq_2 = " << chisq_2 << endl;
   
   return chisq;
 }
@@ -1059,55 +962,21 @@ Double_t THaVDCCluster::fcn_2P(const Double_t* par) {
   
   Double_t chisq = 0.0;
   Double_t delta = 0.0;
-  // Double_t delta_2 = 0.0;
-  // Double_t chisq_2 = 0.0;
-  
-  //  cout << "Start of chi^2 func" << endl;
-  
+    
   for (Int_t i=0; i<GetSize(); i++) {
-    //    Double_t y = fPlane->fTTDConv()->ConvertTimeToDist(fCoordT[i].t-par[2],par[1]);    
-    //        virtual Double_t ConvertTimeToDist( Double_t time, Double_t tanTheta,
-    //			Double_t* ddist = 0 ) const = 0;
-    // retrieve x from fit of y
-
-    //    Double_t y = fHits[i]->ConvertTimeToDist(par[1],par[2]);
 
     if(fHits[i] == fPivot){
-      cout << "~~~~~~~~ Pivot ~~~~~~~~" << endl;
+      //      cout << "~~~~~~~~ Pivot ~~~~~~~~" << endl;
     }
     
     Double_t y = fHits[i]->ConvertTimeToDist(par[0]) + fTimeCorrection;
-    //    Double_t y_2 = fHits[i]->ConvertTimeToDist(par[0]) + fTimeCorrection;
-    //    Double_t y = fHits[i]->ConvertTimeToDist(par[0]) + fTimeCorrection;
-    //Double_t y = fHits[i]->ConvertTimeToDist(fSlope) + fTimeCorrection;
-    // cout << "y = " << y << ", t = " << fHits[i]->GetTime() << endl;
-    // cout << "sign = " << fCoordT[i].s << endl;
     y *= fCoordT[i].s;
-    //    y_2 *= fCoordT[i].s;
-
-    // cout << "y = " << y << ", t = " << fHits[i]->GetTime() << endl;
-    // cout << "y_2 = " << y_2 << ", t = " << fHits[i]->GetTime() - par[2] << endl;
     
-    Double_t x_alt = (y*par[0]) + par[1];
-    //    Double_t x_alt_2 = (y_2*par[0]) + par[1];
-
-    //Double_t y_alt = par[0]*(fHits[i]->GetPos() - par[1]);
-    
-
-    //    cout << "x = " << fHits[i]->GetPos() << ", x_alt = " << x_alt << " = y (" << y << ")/par[0] (" << par[0] << ") + par[1] (" << par[1] << ")" << endl;
-    //    cout << "x = " << fHits[i]->GetPos() << ", x_alt_2 = " << x_alt_2 << " = y_2 (" << y_2 << ")/par[0] (" << par[0] << ") + par[1] (" << par[1] << "), par[2] = " << par[2] << endl;
+    Double_t x_alt = (y*par[0]) + par[1];    
     
     delta = fHits[i]->GetPos() - x_alt;
-    //    delta_2 = fHits[i]->GetPos() - x_alt_2;
-    //    delta = y - y_alt;
-    //    cout << "delta = " << delta << endl;
-    // cout << "delta_2 = " << delta_2 << endl << endl;
     chisq += delta*delta;
-    //    chisq_2 += delta_2*delta_2;
   }
-
-  // cout << "chisq = " << chisq << endl;
-  // cout << "chisq_2 = " << chisq_2 << endl;
   
   return chisq;
 }
@@ -1117,59 +986,19 @@ Double_t THaVDCCluster::fcn_2P(const Double_t* par) {
 //_____________________________________________________________________________
 VDC::chi2_t THaVDCCluster::ThreeParamFit( Double_t& slope, Double_t& icpt, Double_t& t)
 {
-  // Int_t npt = 0;
-  // Double_t chi2 = 0;
 
-
-  //  ROOT::Math::Minimizer* min = ROOT::Math::Factory::CreateMinimizer("Minuit2", "Scan");
-  ROOT::Math::Minimizer* min = ROOT::Math::Factory::CreateMinimizer("Minuit2", "Migrad");
+  fmin->SetLimitedVariable(0, "slope", fSlope, 0.2, 1e-5, 5.0);
+  fmin->SetLimitedVariable(1, "intercept", fInt, 4.2426e-2, -1.7852, 1.77852);
+  //  fmin->SetLimitedVariable(2, "toff", fT0, 1e-10, -4e-7, 0.99*fPivot->GetTime());
+  fmin->SetLimitedVariable(2, "toff", fT0, 5e-9, -8e-7,8e-7);
   
-  //  min->SetTolerance(0.001);
-  min->SetTolerance(10);
-  min->SetMaxFunctionCalls(1000000); // for Minuit/Minuit2
-  min->SetMaxIterations(10000);  // for GSL
-  min->SetPrintLevel(0); // 3
+  fmin->Minimize();  
 
-  const Int_t NPara = 3;
- // const Int_t NPara = 2;
-
-
-  //   ROOT::Math::Functor f(&fcn,NPara);
-  //  THaVDCCluster*  thisClust = this;
-
-  //  THaVDCCluster Cluster; 
-  ROOT::Math::Functor f(this,&THaVDCCluster::fcn_3P,NPara);
-  //  ROOT::Math::Functor f(thisClust,THaVDCCluster::fcn,NPara); 
-
-  
-  min->SetFunction(f);
-  //  cout << endl;
-
-
-  //  min->SetLimitedVariable(0, "slope", 1/fSlope, 0.001, 0.8, 2.2);
-  //  min->SetLimitedVariable(0, "slope", fSlope, 0.01, 1e-5, 5.0); // current
-  min->SetLimitedVariable(0, "slope", fSlope, 0.2, 1e-5, 5.0);
-  min->SetLimitedVariable(1, "intercept", fInt, 4.2426e-2, -1.7852, 1.77852);
-  //  min->SetLimitedVariable(2, "toff", 0, 1e-10, -3e-7, 0.9*fPivot->GetTime());
-  //  min->SetLimitedVariable(2, "toff", fT0, 1e-10, -4e-7, 0.99*fPivot->GetTime());
-  min->SetLimitedVariable(2, "toff", fT0, 5e-9, -8e-7,8e-7);
-
-  min->Minimize();
-
-  const double *xs = min->X();
-
+  const double *xs = fmin->X();
+       
   slope = xs[0];
   icpt = xs[1];
-  //  t = xs[2];
   t = xs[2] - fT0_fake;
-  //  t = 0.0;
-
-  // cout << "~~~~~~~~~~~~~~~~~~~~~~" << endl;
-  // cout << "Results from three param fit:" << endl;
-  // cout << "m = " << slope << ", icpt = " << icpt << ", t = " << t << endl;
-  // cout << "Minimimum achieved = " << min->MinValue() << endl;
-  // cout << "~~~~~~~~~~~~~~~~~~~~~~" << endl;
-  
 
   Double_t chi2 = fcn_3P(xs);
   
@@ -1180,7 +1009,7 @@ VDC::chi2_t THaVDCCluster::ThreeParamFit( Double_t& slope, Double_t& icpt, Doubl
     ++npt;
   }
   
-   return make_pair( chi2, npt );
+  return make_pair( chi2, npt );
 }
 
 

@@ -38,7 +38,7 @@ endif
 
 ROOTCFLAGS   := $(shell root-config --cflags)
 ROOTLIBS     := $(shell root-config --libs)
-ROOTGLIBS    := $(shell root-config --glibs)
+ROOTGLIBS    := $(shell root-config --glibs) -lMinuit2
 ROOTBIN      := $(shell root-config --bindir)
 ROOTINC      := -I$(shell root-config --incdir)
 CXX          := $(shell root-config --cxx)
