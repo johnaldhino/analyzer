@@ -69,12 +69,14 @@ public:
 
   //  enum EMode { kSimple, kWeighted, kT0 };
   enum EMode { kSimple, kWeighted};
-  enum EFitMode {kLinear, kTwoParam, kThreeParam, kT0}; // type of fit to be used for cluster fitting: kLinear is two parameter fit done via standard formulae for linear regression, kTwoParam is a two parameter fit performed via minuit, kThreeParam is a three parameter fit performed via minuit, kT0 is a three parameter ift performed via standard formulae
+  enum EFitMode {kLinear, kTwoParam, kThreeParam, kT0}; // type of fit to be used for cluster fitting: kLinear is two parameter fit done via standard formulae for linear regression, kTwoParam is a two parameter fit performed via minuit, kThreeParam is a three parameter fit performed via minuit, kT0 is a three parameter if performed via standard formulae
+  enum EConvMode {kNormal, kToffapp}; //  controls intial conversion from time to distance: kNormal uses unadjusted time, kToffapp takes into account approximation of t0
 
   virtual void   AddHit( THaVDCHit* hit );
   virtual void   EstTrackParameters();
   virtual void   ConvertTimeToDist();
-  virtual void   FitTrack( EMode mode = kSimple,  EFitMode modeFit = kLinear);
+  virtual void   ConvertTimeToDist(EConvMode convFit);
+  virtual void   FitTrack( EMode mode = kWeighted,  EFitMode modeFit = kLinear);
   virtual void   ClearFit();
   virtual void   CalcChisquare(Double_t& chi2, Int_t& nhits) const;
   VDC::chi2_t    CalcDist();    // calculate global track to wire distances
@@ -102,6 +104,7 @@ public:
   THaTrack*      GetTrack()          const { return fTrack; }
   Int_t          GetTrackIndex()     const;
   Int_t          GetTrkNum()         const { return fTrkNum; }
+  Int_t          GetClsNum()         const { return fClsNum; }
   Double_t       GetSigmaT0()        const { return fSigmaT0; }
   Double_t       GetChi2()           const { return fChi2; }
   Double_t       GetNDoF()           const { return fNDoF; }
@@ -115,6 +118,8 @@ public:
   void           SetTimeCorrection( Double_t dt )   { fTimeCorrection = dt; }
   void           SetPointPair( VDC::VDCpp_t* pp )   { fPointPair = pp; }
   void           SetTrack( THaTrack* track );
+  void           SetClsNum( Int_t clsnum)           { fClsNum = clsnum; }
+  
 
 protected:
 
@@ -130,6 +135,8 @@ protected:
   VDC::VDCpp_t*  fPointPair;         // Lower/upper combo we're assigned to
   THaTrack*      fTrack;             // Track the cluster belongs to
   Int_t          fTrkNum;            // Number of the track using this cluster
+  Int_t          fClsNum;            // Number of cluster (-1 = unused)
+
 
   //Track Parameters
   Double_t       fSlope;             // Current best estimate of actual slope
@@ -137,7 +144,7 @@ protected:
   Double_t       fSigmaSlope;        // Error estimate of fLocalSlope from fit
   Double_t       fInt, fSigmaInt;    // Intercept and error estimate
   Double_t       fLocalInt, fSigmaLocalInt;    // Local Intercept and error estimate    
-  Double_t       fT0, fSigmaT0;      // Fitted common timing offset and error
+  Double_t       fT0 = 0, fSigmaT0;      // Fitted common timing offset and error
   Double_t       fT0_app;      // estimate common timing offset 
   Double_t       fT0_fake = 2e-7;           // fake offset added at start of fitting and removed to get result (200 ns)
   THaVDCHit*     fPivot;             // Pivot - hit with smallest drift time

@@ -88,11 +88,17 @@ Double_t LookupTTDConv::GetLookupVal( Double_t time) const{
   Int_t bin_no = time/(bin_res);
 
   Double_t dist = 0.0;
-  if(time >= 0){
-    dist = LTable[bin_no];
+
+  if(time < 0.0){
+    // extension for times smaller than zero
+    dist = LTable[0] + M2*time;
+    }
+  else if(bin_no > LNumBins-2){
+    // extension for times greater than max
+    dist = LTable[LNumBins-1] + M1*(time - ((LNumBins-1)*bin_res)); 
   }
   else{
-    dist = 1e8;
+    dist = LTable[bin_no] + std::fmod(time,bin_res)*(LTable[bin_no+1]-LTable[bin_no]);
   }
 
   return dist;  
@@ -101,7 +107,7 @@ Double_t LookupTTDConv::GetLookupVal( Double_t time) const{
 
   
   //_____________________________________________________________________________
-  Int_t LookupTTDConv::SetLookupParams( std::vector<Double_t> Table, Int_t NBins, Double_t Low, Double_t R, Double_t Theta)
+  Int_t LookupTTDConv::SetLookupParams( std::vector<Double_t> Table, Int_t NBins, Double_t Low, Double_t R, Double_t Theta, Double_t m1, Double_t m2)
 {
 
   LTable = Table;     // Lookup table
@@ -109,6 +115,9 @@ Double_t LookupTTDConv::GetLookupVal( Double_t time) const{
   LowTime = Low;      // Smallest time for plane
   RCorr = R;          // Distance at which angular correction changes (nature of E field)
   Theta0 = Theta;     // central angle used in correction
+  M1 = m1;
+  M2 = m2;
+
   
   fIsSet = true;
   return 0;

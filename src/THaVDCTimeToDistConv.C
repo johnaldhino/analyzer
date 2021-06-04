@@ -42,7 +42,7 @@ Int_t TimeToDistConv::SetParameters( const vector<double>& )
 //   }
   
 
-Int_t TimeToDistConv::SetLookupParams( std::vector<Double_t> Table, Int_t NBins, Double_t Low, Double_t R, Double_t Theta){
+Int_t TimeToDistConv::SetLookupParams( std::vector<Double_t> Table, Int_t NBins, Double_t Low, Double_t R, Double_t Theta, Double_t M1, Double_t M2){
 
   fIsSet = true;
   return 0;

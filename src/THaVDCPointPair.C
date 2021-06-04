@@ -27,7 +27,7 @@ void THaVDCPointPair::Analyze()
   // point at each other.
 
   //FIXME: preliminary, just the old functionality
-  fError = CalcError( fLowerPoint, fUpperPoint, fSpacing );
+  fError = CalcError();
 }
 
 //_____________________________________________________________________________
@@ -82,26 +82,86 @@ Int_t THaVDCPointPair::Compare( const TObject* obj ) const
 }
 
 //_____________________________________________________________________________
-Double_t THaVDCPointPair::CalcError( THaVDCPoint* here,
+Double_t THaVDCPointPair::CalcError()
+{
+  // Calculate projected positions of points in opposite planes,
+  // take square of distance in x and y
+  // add to this the differences in timing offsets between planes,
+  // these must be scaled by appropriate sigma values for each distribution
+  
+  
+  
+  Double_t error =
+    GetProjectedDistance( fLowerPoint, fUpperPoint, fSpacing, fXRes, fYRes);
+  error +=
+    GetProjectedDistance( fUpperPoint, fLowerPoint, -fSpacing, fXRes, fYRes);
+
+  //  cout << "Space contrib = " << GetProjectedDistance( fUpperPoint, fLowerPoint, -fSpacing, fXRes, fYRes) << endl;
+
+  
+  
+  //  cout << "Timeoffset contrib = " << GetTimeOffsetDifference(fLowerPoint, fUpperPoint) << endl << endl;
+  error += GetTimeOffsetDifference(fLowerPoint, fUpperPoint);
+
+  
+  return error;
+}
+
+//_____________________________________________________________________________
+Double_t THaVDCPointPair::CalcErrorEst( THaVDCPoint* here,
 				     THaVDCPoint* there,
 				     Double_t spacing )
 {
-  // Calculate projected positions of points in opposite planes, measure
-  // how far they differ from partner point intercept, and return the sum
-  // of the squares of the distances
-
+  // Calculate projected positions of points in opposite planes,
+  // take square of distance in x and y
+  // add to this the differences in timing offsets between planes,
+  // these must be scaled by appropriate sigma values for each distribution
+  
+  
+  
   Double_t error =
     GetProjectedDistance( here, there, spacing );
   error +=
     GetProjectedDistance( there, here, -spacing );
 
+  
+  error += GetTimeOffsetDifference(here, there);
+
+  
   return error;
 }
+
+
+
+
+//_____________________________________________________________________________
+void THaVDCPointPair::CalcXY( THaVDCPoint* here,
+			   THaVDCPoint* there,
+	     Double_t spacing, Double_t &UV12X, Double_t &UV12Y, Double_t &UV12PX, Double_t &UV12PY, Double_t &UV21X, Double_t &UV21Y, Double_t &UV21PX, Double_t &UV21PY)
+{
+  // Calculate projected positions of points in opposite planes, measure
+  // how far they differ from partner point intercept, and return the sum
+  // of the squares of the distances
+
+
+  //  cout << "here, there: " << endl;
+  GetProjectedXY(here, there, spacing, UV12X, UV12Y, UV12PX, UV12PY);
+  //  cout << endl << endl;
+
+  //  cout << "there, here: " << endl;
+  GetProjectedXY(there, here, -spacing, UV21X, UV21Y, UV21PX, UV21PY);
+  //  cout << endl << endl;
+
+
+
+}
+
+
 
 //_____________________________________________________________________________
 Double_t THaVDCPointPair::GetProjectedDistance( THaVDCPoint* here,
 						THaVDCPoint* there,
-						Double_t spacing )
+						Double_t spacing, Double_t XRes, Double_t YRes)
 {
   // Project 'here' to plane of 'there' and return square of distance between
   // projected position and intercept of 'there'
@@ -112,8 +172,72 @@ Double_t THaVDCPointPair::GetProjectedDistance( THaVDCPoint* here,
   Double_t x = there->GetX();
   Double_t y = there->GetY();
 
-  return (px-x)*(px-x) + (py-y)*(py-y);
+  
+  
+  return ((px-x)*(px-x))/(XRes*XRes) + ((py-y)*(py-y))/(YRes*YRes);
 }
+
+
+//_____________________________________________________________________________
+void THaVDCPointPair::GetProjectedXY( THaVDCPoint* here,
+				      THaVDCPoint* there,
+				      Double_t spacing,
+				      Double_t &X,
+				      Double_t &Y,
+				      Double_t &PX,
+				      Double_t &PY)
+{
+  // Project 'here' to plane of 'there' and return square of distance between
+  // projected position and intercept of 'there'
+
+  PX = here->GetX() + spacing * here->GetTheta();  // Projected x
+  PY = here->GetY() + spacing * here->GetPhi();    // Projected y
+
+  X = there->GetX();
+  Y = there->GetY();
+
+  // cout.precision(25);
+  // cout << "X = " << X << ", Y = " << Y << endl;
+  // cout << "PX = (" << here->GetX() << " + (" << spacing << "*" <<  here->GetTheta() << " = " << spacing * here->GetTheta() << ") ) = " << PX << ", PY = (" << here->GetY() << " + (" << spacing << "*" <<  here->GetPhi() << " = " << spacing * here->GetPhi() << ") ) = " << PY << endl;  
+
+  // cout << "Differences: " << endl;
+  // cout << "X - PX = " << X-PX << endl;
+  // cout << "Y - PY = " << Y-PY << endl;
+  
+}
+
+
+Double_t THaVDCPointPair::GetTimeOffsetDifference(THaVDCPoint* here,
+				 THaVDCPoint* there){
+  
+  const Int_t NPLANE = 4;
+
+  THaVDCCluster* Point[NPLANE] = {  here->GetUCluster(), here->GetVCluster(), there->GetUCluster(), there->GetVCluster()};
+
+
+  Double_t toffDiff = 0.0;
+
+  Double_t toffRes = 5.7e-9;
+
+
+  for(Int_t i = 0; i<NPLANE; i++){
+    //    cout << "plane " << i << "-t0 = " << Point[i]->GetT0() << ", res = " << Point[i]->GetPlane()->GetT0Resolution() << endl;
+  }
+  
+  for(Int_t i = 0; i<NPLANE-1; i++){
+    
+    for(Int_t j = i+1; j<NPLANE; j++){
+      toffDiff += pow((Point[i]->GetT0()-Point[j]->GetT0()),2)/( pow((Point[i]->GetPlane()->GetT0Resolution()),2) + pow((Point[j]->GetPlane()->GetT0Resolution()),2) );        
+    }
+  }
+
+  toffDiff /= 2.0; // takes account degrees of freedom (3 dof with 6 terms (3/6))
+
+  return toffDiff;
+  
+}
+
+
 
 //_____________________________________________________________________________
 THaTrack* THaVDCPointPair::GetTrack() const

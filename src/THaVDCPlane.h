@@ -70,6 +70,7 @@ public:
   Double_t        GetMaxTime()        const { return fMaxTime; }
   Double_t        GetMaxTdiff()       const { return fMaxTdiff; }
   Double_t        GetT0Resolution()   const { return fT0Resolution; }
+  Double_t        GetT0CutOff()       const { return fT0CutOff; }
 
 //   Double_t GetT0() const { return fT0; }
 //   Int_t GetNumBins() const { return fNumBins; }
@@ -105,6 +106,7 @@ protected:
   Double_t fTDCRes;       // TDC Resolution ( s / channel)
   Double_t fDriftVel;     // Drift velocity in the wire plane (m/s)18
   Double_t fT0Resolution; // (Average) resolution of cluster time offset fit
+  Double_t fT0CutOff;     // (Average) resolution of cluster time offset fit
 
   // Geometry
   TVector3 fCenter;       // Plane center in VDC coordinate system (m)
@@ -123,7 +125,9 @@ protected:
 
 //  enum EFitMode {kLinear, kTwoParam, kThreeParam, kT0}; // type of fit to be used for cluster fitting: kLinear is two parameter fit done via standard formulae for linear regression, kTwoParam is a two parameter fit performed via minuit, kThreeParam is a three parameter fit performed via minuit, kT0 is a three parameter ift performed via standard formulae
 
-  THaVDCCluster::EFitMode fFitMode = THaVDCCluster::kLinear; // parameter to control parameter fitting type 
+  THaVDCCluster::EFitMode fFitMode = THaVDCCluster::kLinear; // parameter to control parameter fitting type
+
+  THaVDCCluster::EConvMode fConvMode = THaVDCCluster::kToffapp; // parameter to control TTD type 
 
   
   // Lookup table parameters

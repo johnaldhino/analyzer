@@ -176,8 +176,8 @@ Int_t THaVDCChamber::MatchUVClusters()
   // Match best in-time clusters (t_0 close to zero).
   // Discard any out-of-time clusters (|t_0| > N sigma, N = 3, configurable).
 
-  Double_t max_u_t0 = fU->GetT0Resolution();
-  Double_t max_v_t0 = fV->GetT0Resolution();
+  Double_t max_u_t0 = fU->GetT0CutOff();
+  Double_t max_v_t0 = fV->GetT0CutOff();
 
   Int_t nuv = 0;
 

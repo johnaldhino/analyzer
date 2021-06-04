@@ -346,7 +346,11 @@ Int_t THaVDC::ReadDatabase( const TDatime& date )
     { "only_fastest_hit",  &only_fastest_hit,  kInt,    0, 1 },
     { "do_tdc_hardcut",    &do_tdc_hardcut,    kInt,    0, 1 },
     { "do_tdc_softcut",    &do_tdc_softcut,    kInt,    0, 1 },
-    { "ignore_negdrift",   &ignore_negdrift,   kInt,    0, 1 },
+    { "ignore_negdrift",   &ignore_negdrift,   kInt,    0, 1 }, // L.vdc.1.Y.res =
+    { "1.X.res",           &fXRes_1,           kDouble, 0, 1 },
+    { "1.Y.res",           &fYRes_1,           kDouble, 0, 1 },
+    { "2.X.res",           &fXRes_2,           kDouble, 0, 1 },
+    { "2.Y.res",           &fYRes_2,           kDouble, 0, 1 },
 #ifdef MCDATA
     { "MCdata",            &mc_data,           kInt,    0, 1 },
 #endif
@@ -505,15 +509,21 @@ Int_t THaVDC::ConstructTracks( TClonesArray* tracks, Int_t mode )
       // i.e., how well the two points point at each other.
       // Don't bother with pairs that are obviously mismatched
       Double_t error =
-	THaVDCPointPair::CalcError( lowerPoint, upperPoint, fSpacing );
+	THaVDCPointPair::CalcErrorEst( lowerPoint, upperPoint, fSpacing );
 
       // Don't create pairs whose matching error is too big
-      if( error >= fErrorCutoff )
+      if( error >= fErrorCutoff ){
+	// cout << "Failed cutoff" << endl;
+	// cout << "Error = " << error << " > cutoff (" << fErrorCutoff << ")" << endl;
 	continue;
+      }
+      else{
+	//	cout << "Error = " << error << " < cutoff (" << fErrorCutoff << ")" << endl;
+      }
 
       // Create new point pair
       THaVDCPointPair* thePair = new( (*fLUpairs)[nPairs++] )
-	THaVDCPointPair( lowerPoint, upperPoint, fSpacing );
+	THaVDCPointPair( lowerPoint, upperPoint, fSpacing, fXRes_1, fYRes_1);
 
       // Explicitly mark these points as unpartnered
       lowerPoint->SetPartner( 0 );
@@ -591,6 +601,23 @@ Int_t THaVDC::ConstructTracks( TClonesArray* tracks, Int_t mode )
 
     // Use the pair. This partners the points, marks its clusters as used
     // and calculates global slopes
+
+    Double_t UV12X = kBig;
+    Double_t UV12Y = kBig;
+    Double_t UV12PX = kBig;
+    Double_t UV12PY = kBig;
+    
+    Double_t UV21X = kBig;
+    Double_t UV21Y = kBig;
+    Double_t UV21PX = kBig;
+    Double_t UV21PY = kBig;
+
+    
+    THaVDCPointPair::CalcXY( lowerPoint, upperPoint, fSpacing, UV12X, UV12Y, UV12PX, UV12PY, UV21X, UV21Y, UV21PX, UV21PY);
+    
+    //    theTrack->SetUVXY(UV12X, UV12Y, UV12PX, UV12PY, UV21X, UV21Y, UV21PX, UV21PY);
+
+    
     thePair->Use();
     nTracks++;
 
@@ -653,6 +680,36 @@ Int_t THaVDC::ConstructTracks( TClonesArray* tracks, Int_t mode )
 	  flag |= kReassigned;
       }
 
+      theTrack->SetClustNums(thePair);
+
+      theTrack->SetError(thePair->GetError());
+      
+      // calculate average of timing offset
+
+      Double_t toffAv = 0.0;
+    
+      toffAv += TMath::Abs(lowerPoint->GetUCluster()->GetT0());
+      toffAv += TMath::Abs(lowerPoint->GetVCluster()->GetT0());
+      toffAv += TMath::Abs(upperPoint->GetUCluster()->GetT0());
+      toffAv += TMath::Abs(upperPoint->GetVCluster()->GetT0());
+      toffAv /= 4.0;
+
+      // cout << "toffAv = " << endl;
+      // cout <<       TMath::Abs(lowerPoint->GetUCluster()->GetT0()) << " + " <<
+      // TMath::Abs(lowerPoint->GetVCluster()->GetT0())  << " + " <<
+      // 	TMath::Abs(upperPoint->GetUCluster()->GetT0())  << " + " <<
+      // 	TMath::Abs(upperPoint->GetVCluster()->GetT0())  << " = " << endl;
+      // cout << toffAv << endl;
+
+      
+
+      theTrack->SetToff(toffAv);
+      //      theTrack->SetToff(1.0);
+            
+            
+      theTrack->SetUVXY(UV12X, UV12Y, UV12PX, UV12PY, UV21X, UV21Y, UV21PX, UV21PY);
+
+      
       theTrack->SetD(lowerPoint->GetX(), lowerPoint->GetY(),
 		     lowerPoint->GetTheta(), lowerPoint->GetPhi());
       theTrack->SetFlag( flag );

@@ -110,6 +110,14 @@ protected:
 			    // the origin of the transport coordinates to
 			    // the s1 plane
 
+  // position-projection resolution
+  Double_t fXRes_1;        // resolution in X_2 - P_X_1
+  Double_t fYRes_1;        // resolution in Y_2 - P_Y_1
+
+  Double_t fXRes_2;        // resolution in X_1 - P_X_2
+  Double_t fYRes_2;        // resolution in Y_1 - P_Y_2
+
+  
   // Configuration
   Int_t    fNumIter;        // Number of iterations for FineTrack()
   Double_t fErrorCutoff;    // Cut on track matching error

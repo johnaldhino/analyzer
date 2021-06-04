@@ -12,6 +12,10 @@
 #include "THaPIDinfo.h"
 #include <cstring>   // for memset
 
+#include "THaVDCPointPair.h"
+#include "THaVDCPoint.h"
+#include "THaVDCCluster.h"
+
 class TClonesArray;
 class THaTrackingDetector;
 class THaCluster;
@@ -39,12 +43,14 @@ public:
       fTX(kBig), fTY(kBig), fTTheta(kBig), fTPhi(kBig), fDp(kBig),
       fPvect(kBig,kBig,kBig), fVertex(kBig,kBig,kBig),
       fVertexError(kBig,kBig,kBig),
-      fPathl(kBig), fTime(kBig), fdTime(kBig), fBeta(kBig), fdBeta(kBig),
+      fPathl(kBig), fToff(kBig), fTime(kBig), fdTime(kBig), fBeta(kBig), fdBeta(kBig),
       fNclusters(0), fPIDinfo(0), fCreator(0), fIndex(-1), fTrkNum(0),
       fID(0), fFlag(0), fType(0), fChi2(kBig), fNDoF(0),
       fDedx(kBig), fEnergy(kBig),
       fNPMT(0), fBetaChi2(kBig), fFPTime(kBig),
-      fGoodPlane3(0), fGoodPlane4(0)
+      fGoodPlane3(0), fGoodPlane4(0),
+      fUV12X(kBig),fUV12Y(kBig),fUV12PX(kBig),fUV12PY(kBig),
+      fUV21X(kBig),fUV21Y(kBig),fUV21PX(kBig),fUV21PY(kBig)
   { memset(fClusters,0,kMAXCL*sizeof(THaCluster*)); }
 
   // Constructor with fp coordinates
@@ -59,7 +65,7 @@ public:
       fTX(kBig), fTY(kBig), fTTheta(kBig), fTPhi(kBig), fDp(kBig),
       fPvect(kBig,kBig,kBig), fVertex(kBig,kBig,kBig),
       fVertexError(kBig,kBig,kBig),
-      fPathl(kBig), fTime(kBig), fdTime(kBig), fBeta(kBig), fdBeta(kBig),
+      fPathl(kBig), fToff(kBig), fTime(kBig), fdTime(kBig), fBeta(kBig), fdBeta(kBig),
       fNclusters(0), fPIDinfo(pid), fCreator(creator), fIndex(-1), fTrkNum(0),
       fID(id), fFlag(0), fType(kHasFP), fChi2(kBig), fNDoF(0),
       fDedx(kBig), fEnergy(kBig),
@@ -83,6 +89,7 @@ public:
   THaTrackID*       GetID()            const { return fID; }
   Int_t             GetTrkNum()        const { return fTrkNum; }
 
+  Double_t          GetError()         const { return fError; }
   Double_t          GetP()             const { return fP; }
   Double_t          GetPhi()           const { return fPhi; }
   THaPIDinfo*       GetPIDinfo()       const { return fPIDinfo; }
@@ -103,6 +110,7 @@ public:
   Double_t          GetRY()            const { return fRY; }
   Double_t          GetRTheta()        const { return fRTheta; }
   Double_t          GetRPhi()          const { return fRPhi; }
+  Double_t          GetToff()          const { return fToff; }
   Double_t          GetTX()            const { return fTX; }
   Double_t          GetTY()            const { return fTY; }
   Double_t          GetTTheta()        const { return fTTheta; }
@@ -151,6 +159,7 @@ public:
 
   void              SetPathLen( Double_t pathl ) { fPathl = pathl; /* meters */ }
   void              SetTime( Double_t time )     { fTime = time; /* seconds */ }
+  void              SetToff( Double_t toff )     { fToff = toff; /* seconds */ }
   void              SetdTime( Double_t dt )      { fdTime = dt; /* seconds */ }
   void              SetBeta( Double_t beta )     { fBeta = beta; }
   void              SetdBeta( Double_t db )      { fdBeta = db; }
@@ -162,6 +171,8 @@ public:
   void              SetGoodPlane3(Int_t gdplane3)  { fGoodPlane3 = gdplane3; }
   void              SetGoodPlane4(Int_t gdplane4)  { fGoodPlane4 = gdplane4; }
 
+  void              SetClustNums(THaVDCPointPair* thePair);
+  void              SetError( Double_t Error) { fError = Error; }
   void              SetChi2( Double_t chi2, Int_t ndof ) { fChi2=chi2; fNDoF=ndof; }
 
   void              SetID( THaTrackID* id )   { fID   = id; }
@@ -182,6 +193,17 @@ public:
   { fVertexError = err; }
   void              SetVertexError( Double_t x, Double_t y, Double_t z )
   { fVertexError.SetXYZ( x, y, z ); }
+  
+  void              SetUVXY(Double_t UV12X, Double_t UV12Y, Double_t UV12PX, Double_t UV12PY, Double_t UV21X, Double_t UV21Y, Double_t UV21PX, Double_t UV21PY)
+  { fUV12X = UV12X;
+    fUV12Y = UV12Y;
+    fUV12PX = UV12PX;
+    fUV12PY = UV12PY;
+    fUV21X = UV21X;
+    fUV21Y = UV21Y;
+    fUV21PX = UV21PX;
+    fUV21PY = UV21PY;
+  }
 
   virtual Bool_t    IsSortable() const { return kTRUE; }
   virtual Int_t	    Compare(const TObject* obj) const;
@@ -222,6 +244,7 @@ protected:
 
   Double_t          fPathl;  // pathlength from target (z=0) (meters)
 
+  Double_t          fToff;   // average of timing offset in 4 planes (s)
   Double_t          fTime;   // time of track at focal plane (s)
   Double_t          fdTime;  // uncertainty in fTime
   Double_t          fBeta;   // beta of track
@@ -234,6 +257,11 @@ protected:
   THaTrackingDetector* fCreator;     //! Detector creating this track
   Int_t             fIndex;          // Track index (-1 = none, 0 = first, etc.)
   Int_t             fTrkNum;         // Track number (0 = unassigned)
+  Int_t             fU1Num;           // Num of clust in U1 plane (-1 = unused)
+  Int_t             fV1Num;           // Num of clust in V1 plane (-1 = unused)
+  Int_t             fU2Num;           // Num of clust in U2 plane (-1 = unused)
+  Int_t             fV2Num;           // Num of clust in V2 plane (-1 = unused)
+  Double_t          fError;
 
   THaTrackID*       fID;     //! Track identifier
   UInt_t            fFlag;   // General status flag (for use by tracking det.)
@@ -250,6 +278,18 @@ protected:
   Double_t          fFPTime;     // Focal Plane time (same as fTime?)
   Int_t             fGoodPlane3; // Track hit a plane 3 paddle
   Int_t             fGoodPlane4; // Track hit a plane 4 paddle
+  
+  Double_t          fUV12X;   // X first chamber
+  Double_t          fUV12Y;   // Y first chamber
+  Double_t          fUV12PX;  // X in first chamber projected from second chamber
+  Double_t          fUV12PY;  // Y in first chamber projected from second chamber
+
+  Double_t          fUV21X;   // X second chamber
+  Double_t          fUV21Y;   // Y second chamber
+  Double_t          fUV21PX;  // X in second chamber projected from first chamber
+  Double_t          fUV21PY;  // Y in second chamber projected from first chamber
+
+
   
   static const Double_t kBig;
 

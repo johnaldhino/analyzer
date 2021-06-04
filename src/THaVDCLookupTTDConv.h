@@ -35,7 +35,7 @@ namespace VDC {
     
     //    virtual Int_t    SetParameters( std::vector<Double_t> Table, Int_t NBins, Double_t R, Double_t Theta);
 
-    virtual Int_t SetLookupParams( std::vector<Double_t> Table, Int_t NBins, Double_t Low, Double_t R, Double_t Theta);
+    virtual Int_t SetLookupParams( std::vector<Double_t> Table, Int_t NBins, Double_t Low, Double_t R, Double_t Theta, Double_t m1, Double_t m2);
 
     virtual Int_t PrintParameters() const;
 
@@ -48,9 +48,15 @@ protected:
     
     // angular parameter
 
-    double  RCorr; //angular correction parameter: distance where correction shifts form from prop to time to constant
-    double Theta0; // angular correction central angle 
+    Double_t RCorr; //angular correction parameter: distance where correction shifts form from prop to time to constant
+    Double_t Theta0; // angular correction central angle 
 
+
+    // extension corrections gives values of distances for extreme times (less than zero or larger time than in table)
+
+    Double_t M1 = 0.0; // gradient for times less than zero
+    Double_t M2 = 0.0; // gradient for time greater than max
+    
     const Double_t bin_res = 0.5e-9; // TDC resolution of 0.5 ns
     
     //    Double_t fdtime;      // uncertainty in the measured time

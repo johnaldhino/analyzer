@@ -162,13 +162,16 @@ Int_t THaVDCPlane::ReadDatabase( const TDatime& date )
   Int_t LNumBins; // number of bins in lookup table
   Double_t LTLow; // smallest time for plane
   Double_t Theta0; // angular correction central angle
-  Double_t RCorr; //angular correction parameter: distance where correction shifts form from prop to time to constant  
+  Double_t RCorr; //angular correction parameter: distance where correction shifts form from prop to time to constant
+  Double_t M1;
+  Double_t M2;
   
   
   
   // Default values for optional parameters
   fTDCRes = 5.0e-10;  // 0.5 ns/chan = 5e-10 s /chan
-  fT0Resolution = 6e-8; // 60 ns --- crude guess
+  fT0Resolution = 6e-9; // 6 ns --- crude guess
+  fT0CutOff = 6e-7; // 600 ns --- crude guess
   fMinClustSize = 3;
   fMaxClustSpan = 7;
   fNMaxGap = 1;
@@ -198,8 +201,12 @@ Int_t THaVDCPlane::ReadDatabase( const TDatime& date )
     { "ttd_table.low",  &LTLow,          kDouble, 0, 1 },
     { "ttd_table.R",    &RCorr,          kDouble, 0, 1 },
     { "ttd_table.theta0",&Theta0,        kDouble, 0, 1 },
+    { "ttd_table.M1",   &M1,             kDouble, 0, 1 },
+    { "ttd_table.M2",   &M2,             kDouble, 0, 1 },
     { "ttd.FitMode",    &fFitMode,       kInt, 0, 1 , 1},
-    { "t0.res",         &fT0Resolution,  kDouble,  0, 1, -1 },
+    { "ttd.ConvMode",   &fConvMode,      kInt, 0, 1 , 1},
+    { "t0.res",         &fT0Resolution,  kDouble,  0, 1, 1 },
+    { "t0.CutOff",      &fT0CutOff,      kDouble,  0, 1, 1 },
     { "clust.minsize",  &fMinClustSize,  kInt,     0, 1, -1 },
     { "clust.maxspan",  &fMaxClustSpan,  kInt,     0, 1, -1 },
     { "maxgap",         &fNMaxGap,       kInt,     0, 1, -1 },
@@ -311,7 +318,7 @@ Int_t THaVDCPlane::ReadDatabase( const TDatime& date )
 
   cout << "ttd_conv = " << ttd_conv << endl;
   if(!ttd_conv.CompareTo("VDC::AnalyticTTDConv")){
-    cout << "Matched with AnalyticTTDConv " << endl;
+    cout << "Using analytic TTD for " << fPrefix << endl;
     fTTDConv->SetDriftVel( fDriftVel );
     if( fTTDConv->SetParameters( ttd_param ) != 0 ) {
       Error( Here(here), "Error initializing drift time-to-distance converter "
@@ -320,15 +327,15 @@ Int_t THaVDCPlane::ReadDatabase( const TDatime& date )
     }
   }
   else if (!ttd_conv.CompareTo("VDC::LookupTTDConv")){
-    cout << "Matched with LookupTTDConv " << endl;
+    cout << "Using Lookup TTD for " << fPrefix << endl;
     fTTDConv->SetDriftVel( fDriftVel );
-    if(fTTDConv->SetLookupParams(LTable, LNumBins, LTLow, RCorr, Theta0) != 0){
+    if(fTTDConv->SetLookupParams(LTable, LNumBins, LTLow, RCorr, Theta0, M1, M2) != 0){
       Error( Here(here), "Error initializing (Lookup table) drift time-to-distance converter "
 	     "\"%s\". Check ttd_table entries in database.", s );
       return kInitError;
     }
     else{
-      fTTDConv->PrintParameters();
+      //      fTTDConv->PrintParameters();
     }
   }
 
@@ -382,15 +389,6 @@ Int_t THaVDCPlane::ReadDatabase( const TDatime& date )
   }
 #endif
 
-  cout << "Test reading of Lookup parameters for " << fPrefix << ":" << endl << endl;
-
-  cout << "Number of bins = " << LNumBins << endl;
-  cout << "Lowest time = " << LTLow << endl;
-  cout << "Number of values in lookup table: " << LTable.size() << endl;
-  cout << "R = " << RCorr << endl;
-  cout << "theta0 = " << Theta0 << endl;
-  cout << endl << endl;
-  
   
   fIsInit = true;
   return kOK;
@@ -877,6 +875,8 @@ Int_t THaVDCPlane::FindClusters()
            clust->AddHit( clushits[j] );
          }
 
+	 clust->SetClsNum(nextClust-1);
+
          assert( clust->GetSize() > 0 && clust->GetSize() >= nwires );
          // This is a good cluster candidate. Estimate its position/slope
          clust->EstTrackParameters();
@@ -908,7 +908,7 @@ Int_t THaVDCPlane::FitTracks()
     // clusters, i.e. either the rough guess from
     // THaVDCCluster::EstTrackParameters or the global slope from
     // THaVDC::ConstructTracks
-    clust->ConvertTimeToDist();
+    clust->ConvertTimeToDist(fConvMode);
 
     // Fit drift distances to get intercept, slope.
     //clust->FitTrack(THaVDCCluster::kSimple,fFitMode);
