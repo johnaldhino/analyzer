@@ -27,7 +27,7 @@ void THaVDCPointPair::Analyze()
   // point at each other.
 
   //FIXME: preliminary, just the old functionality
-  fError = CalcError();
+  fError = CalcError(fPass);
 }
 
 //_____________________________________________________________________________
@@ -82,31 +82,41 @@ Int_t THaVDCPointPair::Compare( const TObject* obj ) const
 }
 
 //_____________________________________________________________________________
-Double_t THaVDCPointPair::CalcError()
+Double_t THaVDCPointPair::CalcError(Bool_t &Pass)
 {
   // Calculate projected positions of points in opposite planes,
   // take square of distance in x and y
   // add to this the differences in timing offsets between planes,
   // these must be scaled by appropriate sigma values for each distribution
   
-  
+
+  // bool to check if pair passes all cuts (based on both points being within 3 Sigma of each other in space and time offset)
+  Bool_t Pass1 = false;
+  Bool_t Pass2 = false;
   
   Double_t error =
-    GetProjectedDistance( fLowerPoint, fUpperPoint, fSpacing, fXRes, fYRes);
+    GetProjectedDistance( fLowerPoint, fUpperPoint, fSpacing, Pass1, fXRes, fYRes);
   error +=
-    GetProjectedDistance( fUpperPoint, fLowerPoint, -fSpacing, fXRes, fYRes);
+    GetProjectedDistance( fUpperPoint, fLowerPoint, -fSpacing, Pass2, fXRes, fYRes);
 
   //  cout << "Space contrib = " << GetProjectedDistance( fUpperPoint, fLowerPoint, -fSpacing, fXRes, fYRes) << endl;
 
   
   
   //  cout << "Timeoffset contrib = " << GetTimeOffsetDifference(fLowerPoint, fUpperPoint) << endl << endl;
-  error += GetTimeOffsetDifference(fLowerPoint, fUpperPoint);
+  Bool_t PassT  = true;
+  error += GetTimeOffsetDifference(fLowerPoint, fUpperPoint, PassT);
 
+   // cout << "Pass1 = " << Pass1 << ", Pass2 = " << Pass2 << ", PassT = " << PassT << endl;
+  
+  if(Pass1 && Pass2 && PassT){
+    Pass = true;
+  }
   
   return error;
 }
 
+/*
 //_____________________________________________________________________________
 Double_t THaVDCPointPair::CalcErrorEst( THaVDCPoint* here,
 				     THaVDCPoint* there,
@@ -161,7 +171,9 @@ void THaVDCPointPair::CalcXY( THaVDCPoint* here,
 //_____________________________________________________________________________
 Double_t THaVDCPointPair::GetProjectedDistance( THaVDCPoint* here,
 						THaVDCPoint* there,
-						Double_t spacing, Double_t XRes, Double_t YRes)
+						Double_t spacing,
+						Bool_t &Pass, 
+						Double_t XRes, Double_t YRes)
 {
   // Project 'here' to plane of 'there' and return square of distance between
   // projected position and intercept of 'there'
@@ -172,10 +184,78 @@ Double_t THaVDCPointPair::GetProjectedDistance( THaVDCPoint* here,
   Double_t x = there->GetX();
   Double_t y = there->GetY();
 
+  //Double_t XDiff = (x - px)/XRes;
+  Double_t XDiff = (x - px);
+  
+  //  Double_t YDiff = (y - py)/YRes;
+  Double_t YDiff = (y - py);
+
+  Double_t Comb = (XDiff+YDiff)/TMath::Sqrt(XRes*XRes+YRes*YRes);
+
+  // cout << "XDiff = " << (x - px) << "/" << XRes << " = " << XDiff << endl;
+  // cout << "YDiff = " << (y - py) << "/" << YRes << " = " << YDiff << endl;
+
+
+  // test if combined x,y falls into sigma
+
+  if(abs(Comb)<3.0){
+    Pass = true;
+  }
   
   
-  return ((px-x)*(px-x))/(XRes*XRes) + ((py-y)*(py-y))/(YRes*YRes);
+  // test if both x and y difference fall within 3 sigma 
+  // if(abs(XDiff)<3.0 && abs(YDiff)<3.0){
+  //   Pass = true;
+  // }
+
+  //  cout << "Pass = " << Pass << endl;
+
+  XDiff = (x - px)/XRes;
+  YDiff = (y - py)/YRes;
+  
+  return (XDiff*XDiff + YDiff*YDiff);
 }
+
+
+//_____________________________________________________________________________
+Double_t THaVDCPointPair::GetProjectedDistance( THaVDCPoint* here,
+						THaVDCPoint* there,
+						Double_t spacing,
+						Double_t XRes, Double_t YRes)
+{
+  // Project 'here' to plane of 'there' and return square of distance between
+  // projected position and intercept of 'there'
+
+  Double_t px = here->GetX() + spacing * here->GetTheta();  // Projected x
+  Double_t py = here->GetY() + spacing * here->GetPhi();    // Projected y
+
+  Double_t x = there->GetX();
+  Double_t y = there->GetY();
+
+  Double_t XDiff = (x - px)/XRes;
+  
+  Double_t YDiff = (y - py)/YRes;
+    
+  return (XDiff*XDiff + YDiff*YDiff);
+}
+
+
+
+
+//_____________________________________________________________________________
+void THaVDCPointPair::GetTP(THaVDCPoint* here, THaVDCPoint* there, Double_t &UV12Theta, Double_t &UV12Phi,  Double_t &UV21Theta, Double_t &UV21Phi)
+{
+  // Project 'here' to plane of 'there' and return square of distance between
+  // projected position and intercept of 'there'
+
+  UV12Theta = here->GetTheta();
+  UV12Phi = here->GetPhi();
+  
+  UV21Theta = there->GetTheta();
+  UV21Phi = there->GetPhi();
+  
+}
+
 
 
 //_____________________________________________________________________________
@@ -187,8 +267,7 @@ void THaVDCPointPair::GetProjectedXY( THaVDCPoint* here,
 				      Double_t &PX,
 				      Double_t &PY)
 {
-  // Project 'here' to plane of 'there' and return square of distance between
-  // projected position and intercept of 'there'
+  // Project 'here' to plane of 'there' and obtain position (X,Y) in there and here projected to there
 
   PX = here->GetX() + spacing * here->GetTheta();  // Projected x
   PY = here->GetY() + spacing * here->GetPhi();    // Projected y
@@ -216,18 +295,46 @@ Double_t THaVDCPointPair::GetTimeOffsetDifference(THaVDCPoint* here,
 
 
   Double_t toffDiff = 0.0;
-
-  Double_t toffRes = 5.7e-9;
-
-
-  for(Int_t i = 0; i<NPLANE; i++){
-    //    cout << "plane " << i << "-t0 = " << Point[i]->GetT0() << ", res = " << Point[i]->GetPlane()->GetT0Resolution() << endl;
-  }
+ 
   
   for(Int_t i = 0; i<NPLANE-1; i++){
     
     for(Int_t j = i+1; j<NPLANE; j++){
       toffDiff += pow((Point[i]->GetT0()-Point[j]->GetT0()),2)/( pow((Point[i]->GetPlane()->GetT0Resolution()),2) + pow((Point[j]->GetPlane()->GetT0Resolution()),2) );        
+    }
+  }
+
+  toffDiff /= 2.0; // takes account degrees of freedom (3 dof with 6 terms (3/6))
+
+  return toffDiff;
+  
+}
+
+
+Double_t THaVDCPointPair::GetTimeOffsetDifference(THaVDCPoint* here,
+						  THaVDCPoint* there, Bool_t &Pass){
+  
+  const Int_t NPLANE = 4;
+
+  THaVDCCluster* Point[NPLANE] = {  here->GetUCluster(), here->GetVCluster(), there->GetUCluster(), there->GetVCluster()};
+
+
+  Double_t toffDiff = 0.0;
+
+
+  Double_t t0Diff = 0.0;
+  
+  for(Int_t i = 0; i<NPLANE-1; i++){
+    
+    for(Int_t j = i+1; j<NPLANE; j++){
+      
+      
+      t0Diff = (Point[i]->GetT0()-Point[j]->GetT0())/(TMath::Sqrt(pow((Point[i]->GetPlane()->GetT0Resolution()),2) + pow((Point[j]->GetPlane()->GetT0Resolution()),2)));
+      
+      toffDiff += pow(t0Diff,2);
+      if(abs(t0Diff)>3.0){
+	Pass = false;
+      }
     }
   }
 
