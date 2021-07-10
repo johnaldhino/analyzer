@@ -41,6 +41,10 @@ public:
   PointCoords_t   CalcDetCoords( const THaVDCCluster* u,
 				 const THaVDCCluster* v ) const;
 
+  // equivalent of CalcDetCoords but for V plane
+  PointCoords_t   CalcDetCoordsVPlane( const THaVDCCluster* v,
+				 const THaVDCCluster* u ) const;
+
   // Get and Set Functions
   THaVDCPlane*    GetUPlane()      const { return fU; }
   THaVDCPlane*    GetVPlane()      const { return fV; }

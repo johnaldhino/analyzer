@@ -81,6 +81,9 @@ public:
   // relative to fCenter
   virtual Bool_t  IsInActiveArea( Double_t x, Double_t y ) const;
 
+  // check if position is in 'used' area of plane
+  Bool_t IsInUsedArea(Double_t x, Double_t y) const;
+
   void  UpdateGeometry( Double_t x, Double_t y, bool force = false );
 
 protected:
@@ -118,6 +121,13 @@ protected:
                           // normal to wires in dir of increasing wire position
   Double_t fSinWAngle;    // sine of fWAngle, for efficiency
   Double_t fCosWAngle;    // cosine of fWAngle, for efficiency
+
+  // position limits (stricter than just size but limits of track position)
+  Double_t fXLimUp;       // upper limit of X
+  Double_t fYLimUp;       // upper limit of Y
+  Double_t fXLimLow;       // lower limit of X
+  Double_t fYLimLow;       // lower limit of Y
+  
 
   // Lookup table parameters
 //   Double_t fT0;     // calculated zero time

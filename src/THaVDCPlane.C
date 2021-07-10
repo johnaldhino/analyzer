@@ -413,13 +413,17 @@ Int_t THaVDCPlane::ReadGeometry( FILE* file, const TDatime& date, Bool_t )
   //  "size":     full x/y/z size of active area (m) -> fSize
   //              This parameter is optional, but recommended
   //              If not given, defaults for the HRS VDCs are used
+  //  "XLim":     This gives limits for x (stricter than size)
+  //  "YLim":     This gives limits for y (stricter than size)
 
   const char* const here = "ReadGeometry";
 
-  vector<double> position, size;
+  vector<double> position, size, XLim, YLim;
   DBRequest request[] = {
     { "position", &position, kDoubleV, 0, 0, 0, "\"position\" (detector position [m])" },
     { "size",     &size,     kDoubleV, 0, 1, 0, "\"size\" (detector size [m])" },
+    { "XLim",     &XLim,     kDoubleV, 0, 1, 0, "\"XLim\" (position limit [m])" },
+    { "YLim",     &YLim,     kDoubleV, 0, 1, 0, "\"YLim\" (position limit [m])" },
     { 0 }
   };
   Int_t err = LoadDB( file, date, request );
@@ -462,6 +466,63 @@ Int_t THaVDCPlane::ReadGeometry( FILE* file, const TDatime& date, Bool_t )
     fSize[1] = 0.2; // half size
     fSize[2] = 0.026;
   }
+
+
+if( !XLim.empty() ) {
+  if( XLim.size() != 2 ) {
+      Error( Here(here), "Incorrect number of values = %u for "
+	     "X Limits (XLim). Must be exactly 2. Fix database.",
+	     static_cast<unsigned int>(size.size()) );
+      return 2;
+  }
+  if( XLim[0] >= XLim[1] ) {
+    cout << "XLim[0] (" << XLim[0] << ") >= XLim[1] (" << XLim[1] << ")" << endl;
+    Error( Here(here), "X lower limit greater than or equal to upper limit. Fix database." );
+    return 3;
+  }
+  
+  fXLimLow = XLim[0];
+  fXLimUp = XLim[1];  
+ }
+ else {
+    // Conservative defaults for VDC used areas
+    // NB: these are used by the IsInUsedArea cut in THaVDCChamber::
+    // MatchUVClusters. Too small values lead to loss of acceptance.
+    fXLimUp = 2; 
+    fXLimLow = -2;
+  }
+
+ if( !YLim.empty() ) {
+  if( YLim.size() != 2 ) {
+      Error( Here(here), "Incorrect number of values = %u for "
+	     "X Limits (YLim). Must be exactly 2. Fix database.",
+	     static_cast<unsigned int>(size.size()) );
+      return 2;
+  }
+  if( YLim[0] >= YLim[1] ) {
+    cout << "YLim[0] (" << YLim[0] << ") >= YLim[1] (" << YLim[1] << ")" << endl;
+    Error( Here(here), "Y lower limit greater than or equal to upper limit. Fix database." );
+    return 3;
+  }
+  
+  fYLimLow = YLim[0];
+  fYLimUp = YLim[1];  
+ }
+  else {
+    // Conservative defaults for VDC used areas
+    // NB: these are used by the IsInUsedArea cut in THaVDCChamber::
+    // MatchUVClusters. Too small values lead to loss of acceptance.
+    fYLimUp = 0.05; // half size
+    fYLimLow = -0.05; // half size
+  }
+
+
+ cout << "Test reading of X and Y limits" << endl;
+ cout << "XLimUp = " << fXLimUp << endl;
+ cout << "XLimLow = " << fXLimLow << endl;
+ cout << "YLimUp = " << fYLimUp << endl;
+ cout << "YLimLow = " << fYLimLow << endl;
+ 
 
   return 0;
 }
@@ -946,6 +1007,22 @@ Int_t THaVDCPlane::FitTracks()
 
   return 0;
 }
+
+
+//_____________________________________________________________________________
+Bool_t THaVDCPlane::IsInUsedArea( Double_t x, Double_t y ) const
+{
+  // Check if given (x,y) coordinates are inside this plane's 'Used' area
+  // (defined by f
+  // x and y must be given in the VDC coordinate system.
+
+
+  //  cout << "x = " << x << ", y = " << y << ", fXLimUp = " << fXLimUp << ", fXLimLow = " << fXLimLow << ", fYLimUp = " << fYLimUp << ", fYLimLow = " << fYLimLow << endl;
+  
+  return(x < fXLimUp && x > fXLimLow && y < fYLimUp && y >fYLimLow);
+}
+
+
 
 //_____________________________________________________________________________
 Bool_t THaVDCPlane::IsInActiveArea( Double_t x, Double_t y ) const

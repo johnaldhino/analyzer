@@ -154,15 +154,44 @@ PointCoords_t THaVDCChamber::CalcDetCoords( const THaVDCCluster* ucl,
 
   // Project v0 into the u plane
   Double_t v = v0 - mv * GetSpacing();
-
+  
   PointCoords_t c;
   c.x     = UVtoX(u,v);
   c.y     = UVtoY(u,v);
   c.theta = UVtoX(mu,mv);
   c.phi   = UVtoY(mu,mv);
+  
 
   return c;
 }
+
+
+//_____________________________________________________________________________
+PointCoords_t THaVDCChamber::CalcDetCoordsVPlane( const THaVDCCluster* vcl,
+					    const THaVDCCluster* ucl ) const
+{
+  // Convert U,V coordinates of the given uv cluster pair to the detector
+  // coordinate system of this chamber. Takes v as the reference plane.
+  // equivalent of CalCDetCoords but projecting u cluster to v plane. 
+
+  Double_t u0  = ucl->GetIntercept();  // Intercept in U plane
+  Double_t v = vcl->GetIntercept();  // Intercept in V plane
+  Double_t mu = ucl->GetSlope();      // Slope of U cluster
+  Double_t mv = vcl->GetSlope();      // Slope of V cluster
+
+  // Project u0 into the v plane
+  Double_t u = u0 + mu * GetSpacing();
+  
+  PointCoords_t c;
+  c.x     = UVtoX(u,v);
+  c.y     = UVtoY(u,v);
+  c.theta = UVtoX(mu,mv);
+  c.phi   = UVtoY(mu,mv);
+  
+
+  return c;
+}
+
 
 //_____________________________________________________________________________
 Int_t THaVDCChamber::MatchUVClusters()
@@ -183,27 +212,58 @@ Int_t THaVDCChamber::MatchUVClusters()
 
   // Consider all possible uv cluster combinations
   for( Int_t iu = 0; iu < nu; ++iu ) {
+
+    //std::cout << "UClust " << iu << std::endl;
+    
     THaVDCCluster* uClust = fU->GetCluster(iu);
     if( TMath::Abs(uClust->GetT0()) > max_u_t0 )
+      {
+	//std::cout <<	"U clust failed t0 condition, |t0| = " << TMath::Abs(uClust->GetT0()) << " > max (" << max_u_t0 << ")" << std::endl << std::endl;
       continue;
+      }
 
     for( Int_t iv = 0; iv < nv; ++iv ) {
       THaVDCCluster* vClust = fV->GetCluster(iv);
+      //std::cout << "VClust " << iv << std::endl;
       if( TMath::Abs(vClust->GetT0()) > max_v_t0 )
+	{
+	  //std::cout << "V clust failed t0 condition, |t0| = " << TMath::Abs(vClust->GetT0()) << " > max (" << max_v_t0 << ")" << std::endl << std::endl;
 	continue;
+	}
 
       // Test position to be within drift chambers
+      // std::cout << "Test position to be within drift chambers" << std::endl;
       const PointCoords_t c = CalcDetCoords(uClust,vClust);
       if( !fU->IsInActiveArea( c.x, c.y ) ) {
-	continue;
+	//std::cout << "UClust " <<  iu << ", VClust " << iv << " fails Active area" << std::endl;
+	//std::cout << "(x,y) = " << "(" << c.x << "," << c.y << ")" << std::endl;
+      	continue;
       }
+
+      
+      // test if position is in 'used' portion of drift chamber
+      // stricter test than 'active' area
+      const PointCoords_t c_v = CalcDetCoordsVPlane(vClust,uClust);
+      if( !fU->IsInUsedArea( c.x, c.y ) ) {
+	//	std::cout << fPrefix << ": UClust " <<  iu << ", VClust " << iv << " fails (U-plane) Used area" << std::endl;
+	//	std::cout << "(x,y) = " << "(" << c.x << "," << c.y << ")" << std::endl;
+      	continue;
+      }
+      if( !fV->IsInUsedArea( c_v.x, c_v.y ) ) {
+	//	std::cout << "UClust " <<  iu << ", VClust " << iv << " fails (V-plane) Used area" << std::endl;
+	//	std::cout << "(x,y) = " << "(" << c.x << "," << c.y << ")" << std::endl;
+      	continue;
+      }
+      
 
       // This cluster pair passes preliminary tests, so we save it, regardless
       // of possible ambiguities, which will be sorted out later
       new( (*fPoints)[nuv++] ) THaVDCPoint( uClust, vClust, this );
+
     }
   }
-
+  //  std::cout << std::endl;
+  
   // return the number of UV pairs found
   return nuv;
 }
