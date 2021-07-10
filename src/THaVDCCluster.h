@@ -180,7 +180,7 @@ protected:
   
   void   FitThreeParamTrack( Bool_t weighted = false );
   //  VDC::chi2_t CalcChisquareTwoParam( Double_t slope, Double_t icpt, Double_t d0 ) const;
-  VDC::chi2_t ThreeParamFit( Double_t& slope, Double_t& icpt, Double_t& d0 );
+  VDC::chi2_t ThreeParamFit( Double_t& slope, Double_t& icpt, Double_t& t, Double_t& slopeErr, Double_t& icptErr, Double_t& tError);
   Double_t fcn_3P(const Double_t* par);
   
   void   Linear3DFit( Double_t& slope, Double_t& icpt, Double_t& d0 ) const;

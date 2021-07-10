@@ -321,7 +321,13 @@ void THaVDCCluster::FitTrack( EMode mode, EFitMode modeFit)
     break;
   case kThreeParam:
     //    cout << "Three param condition" << endl;
-    FitThreeParamTrack(WeightedFit);
+    // if cluster has less than 5 hits then use simple (two param) fit
+    if( GetSize() < 5 ) {
+      FitSimpleTrack(WeightedFit);
+    }
+    else{
+      FitThreeParamTrack(WeightedFit);
+    }    
     break;
   case kT0:
     //    cout << "t0 fit condition" << endl;
@@ -389,6 +395,9 @@ void THaVDCCluster::FitSimpleTrack( Bool_t weighted )
 
   const Int_t nSignCombos = 2; //Number of different sign combinations
   for (int i = 0; i < nSignCombos; i++) {
+
+    Int_t nhits = GetSize();
+    
     Double_t F, sigmaF2;  // intermediate slope and St. Dev.**2
     Double_t G, sigmaG2;  // intermediate intercept and St. Dev.**2
     Double_t sigmaFG;     // correlated uncertainty
@@ -415,7 +424,11 @@ void THaVDCCluster::FitSimpleTrack( Bool_t weighted )
       Double_t y = fCoord[j].y;   // Distance to wire
       Double_t w = fCoord[j].w;
 
-      if (w <= 0) continue;
+      if (w <= 0){
+	continue;
+	nhits--;
+      }
+	
       W     += w;
       WW    += w*w;
       sumX  += x * w;
@@ -449,13 +462,16 @@ void THaVDCCluster::FitSimpleTrack( Bool_t weighted )
     // scale the uncertainty of the fit parameters based upon the
     // quality of the fit. This really should not be necessary if
     // we believe the drift-distance uncertainties
-    // sigmaM *= chi2/(nhits - 2);
-    // sigmaB *= chi2/(nhits - 2);
+    // sigmaM *= chi2.first/(chi2.second - 2);
+    // sigmaB *= chi2.first/(chi2.second - 2);
+
+  
 
     // Pick the better value
     if (i == 0 || chi2.first < bestFit) {
       bestFit     = fChi2 = chi2.first;
       fNDoF       = chi2.second - 2;
+      fSlope      = m;
       fLocalSlope = m;
       fInt        = b;
       fLocalInt   = b;
@@ -478,7 +494,7 @@ void THaVDCCluster::FitThreeParamTrack( Bool_t weighted )
   // Alternative fit which forms chi^2 between wire position x and output x' obtained with 3 parameters: slope, intercept and t0 (timing offset)      
 
   fFitOK = false;
-  if( GetSize() < 5 ) { // should be 3
+  if( GetSize() < 5 ) { // should be 3 (5)
     return;  // Too few hits to get meaningful results
 	     // Do keep current values of slope and intercept
   }
@@ -576,12 +592,15 @@ void THaVDCCluster::FitThreeParamTrack( Bool_t weighted )
       fCoordT[pivotNum].s = -1;
     }
 
-    chi2_t chi2 =  ThreeParamFit(m,b,d0);
+    chi2_t chi2 =  ThreeParamFit(m,b,d0,sigmaM,sigmaB,sigmaD0);
     
     
     if (i == 0 || chi2.first < bestFit) {
-      bestFit        = fChi2 = chi2.first;
+      //  bestFit        = fChi2 = chi2.first;
+      bestFit     = chi2.first;
+      fChi2 = chi2.first;
       fNDoF       = chi2.second - 3;
+      fSlope      = m;
       fLocalSlope = m;
       fInt        = b;
       fLocalInt   = b;
@@ -1046,7 +1065,7 @@ Double_t THaVDCCluster::fcn_2P(const Double_t* par) {
 
 
 //_____________________________________________________________________________
-VDC::chi2_t THaVDCCluster::ThreeParamFit( Double_t& slope, Double_t& icpt, Double_t& t)
+VDC::chi2_t THaVDCCluster::ThreeParamFit( Double_t& slope, Double_t& icpt, Double_t& t, Double_t& slopeErr, Double_t& icptErr, Double_t& tError)
 {
 
   fmin->SetLimitedVariable(0, "slope", fSlope, 0.2, 1e-5, 5.0);
@@ -1057,10 +1076,15 @@ VDC::chi2_t THaVDCCluster::ThreeParamFit( Double_t& slope, Double_t& icpt, Doubl
   fmin->Minimize();  
 
   const double *xs = fmin->X();
+  const double *xsErr = fmin->Errors();
        
   slope = xs[0];
   icpt = xs[1];
   t = xs[2] - fT0_fake;
+
+  slopeErr = xsErr[0];
+  icptErr = xsErr[1];
+  tError = xsErr[2];
 
   Double_t chi2 = fcn_3P(xs);
   
