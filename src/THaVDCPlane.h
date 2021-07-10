@@ -71,6 +71,7 @@ public:
   Double_t        GetMaxTdiff()       const { return fMaxTdiff; }
   Double_t        GetT0Resolution()   const { return fT0Resolution; }
   Double_t        GetT0CutOff()       const { return fT0CutOff; }
+  // Double_t        GetT0AppAdj()       const { return fT0AppAdj; }
 
 //   Double_t GetT0() const { return fT0; }
 //   Int_t GetNumBins() const { return fNumBins; }
@@ -106,7 +107,8 @@ protected:
   Double_t fTDCRes;       // TDC Resolution ( s / channel)
   Double_t fDriftVel;     // Drift velocity in the wire plane (m/s)18
   Double_t fT0Resolution; // (Average) resolution of cluster time offset fit
-  Double_t fT0CutOff;     // (Average) resolution of cluster time offset fit
+  Double_t fT0CutOff;     // cutoff for (Average) resolution of cluster time offset fit
+  Double_t fT0AppAdj;     // adjustment between approximate t0 and 'true' (imperical)
 
   // Geometry
   TVector3 fCenter;       // Plane center in VDC coordinate system (m)

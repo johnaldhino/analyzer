@@ -219,6 +219,7 @@ Int_t THaVDCPlane::ReadDatabase( const TDatime& date )
     { "tdiff.min",      &fMinTdiff,      kDouble,  0, 1, -1 },
     { "tdiff.max",      &fMaxTdiff,      kDouble,  0, 1, -1 },
     { "description",    &fTitle,         kTString, 0, 1 },
+    { "t0.app_adj",     &fT0AppAdj,      kDouble,  0, 1, -1},
     { 0 }
   };
 
@@ -883,6 +884,7 @@ Int_t THaVDCPlane::FindClusters()
          }
 
 	 clust->SetClsNum(nextClust-1);
+	 clust->SetT0_app_adj(fT0AppAdj);
 
          assert( clust->GetSize() > 0 && clust->GetSize() >= nwires );
          // This is a good cluster candidate. Estimate its position/slope

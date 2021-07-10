@@ -119,6 +119,7 @@ public:
   void           SetPointPair( VDC::VDCpp_t* pp )   { fPointPair = pp; }
   void           SetTrack( THaTrack* track );
   void           SetClsNum( Int_t clsnum)           { fClsNum = clsnum; }
+  void           SetT0_app_adj( Double_t t0_app_adj) {fT0_app_adj = t0_app_adj; }
   
 
 protected:
@@ -145,8 +146,9 @@ protected:
   Double_t       fInt, fSigmaInt;    // Intercept and error estimate
   Double_t       fLocalInt, fSigmaLocalInt;    // Local Intercept and error estimate    
   Double_t       fT0 = 0, fSigmaT0;      // Fitted common timing offset and error
-  Double_t       fT0_app;      // estimate common timing offset 
-  Double_t       fT0_fake = 2e-7;           // fake offset added at start of fitting and removed to get result (200 ns)
+  Double_t       fT0_app;      // estimate common timing offset
+  Double_t       fT0_app_adj = 6.7e-9;  // adjustment between approximation and 'true' timing offset (imperical)
+  Double_t       fT0_fake = 0.0;           // fake offset added at start of fitting and removed to get result (200 ns)
   THaVDCHit*     fPivot;             // Pivot - hit with smallest drift time
   //FIXME: in the code, this is used as a distance correction!!
   Double_t       fTimeCorrection;    // correction to be applied when fitting

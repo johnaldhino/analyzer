@@ -203,7 +203,7 @@ void THaVDCCluster::ConvertTimeToDist(EConvMode convFit)
   if(pivotNum > 0 && pivotNum < GetSize()-1){
     t_piv_prev = fHits[pivotNum-1]->GetTime(); // value of time after pivot
     t_piv_post = fHits[pivotNum+1]->GetTime(); // value of time before pivot
-    toff_approx = (2*t_piv - TMath::Abs(t_piv_prev-t_piv_post))/2.;
+    toff_approx = (2*t_piv - TMath::Abs(t_piv_prev-t_piv_post))/2. + fT0_app_adj;
     fT0_app = toff_approx;
 
     if(convFit == kToffapp){
@@ -524,7 +524,7 @@ void THaVDCCluster::FitThreeParamTrack( Bool_t weighted )
   if(pivotNum > 0 && pivotNum < GetSize()-1){
     t_piv_prev = fHits[pivotNum-1]->GetTime(); // value of time after pivot
     t_piv_post = fHits[pivotNum+1]->GetTime(); // value of time before pivot
-    toff_approx = (2*t_piv - TMath::Abs(t_piv_prev-t_piv_post))/2.;
+    toff_approx = (2*t_piv - TMath::Abs(t_piv_prev-t_piv_post))/2. + fT0_app_adj;
     fT0 = toff_approx;
     fT0_app = toff_approx;
   }
