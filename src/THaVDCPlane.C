@@ -156,6 +156,10 @@ Int_t THaVDCPlane::ReadDatabase( const TDatime& date )
   TString ttd_conv = "AnalyticTTDConv";
   // TString ttd_conv = "LookupTTDConv";
 
+  // analytic paramters
+  Double_t Theta0Ana; // angular correction central angle
+  Double_t RCorrAna; //angular correction parameter: distance where correction shifts form from prop to time to constant
+  
   
   // read lookup table
   vector<Double_t> LTable; // lookup table
@@ -194,8 +198,10 @@ Int_t THaVDCPlane::ReadDatabase( const TDatime& date )
     { "tdc.hits"     ,  &max_tdc_hits,   kInt,     0, 1, -1 },
     { "tdc.res",        &fTDCRes,        kDouble,  0, 0, -1 },
     { "tdc.offsets",    &tdc_offsets,    kFloatV },
-    { "ttd.converter",  &ttd_conv,       kTString, 0, 1, -1 },
+    { "ttd.converter",  &ttd_conv,       kTString, 0, 1, 1 },
     { "ttd.param",      &ttd_param,      kDoubleV, 0, 0, -1 },
+    { "ttd_table.R_Ana",    &RCorrAna,          kDouble, 0, 1 },
+    { "ttd_table.theta0_Ana",&Theta0Ana,        kDouble, 0, 1 },
     { "ttd_table.tables",&LTable,        kDoubleV, 0, 0 },    
     { "ttd_table.nbins",&LNumBins,       kInt, 0, 1 },
     { "ttd_table.low",  &LTLow,          kDouble, 0, 1 },
@@ -320,6 +326,7 @@ Int_t THaVDCPlane::ReadDatabase( const TDatime& date )
   if(!ttd_conv.CompareTo("VDC::AnalyticTTDConv")){
     cout << "Using analytic TTD for " << fPrefix << endl;
     fTTDConv->SetDriftVel( fDriftVel );
+    fTTDConv->SetAngleParameters(RCorrAna, Theta0Ana);
     if( fTTDConv->SetParameters( ttd_param ) != 0 ) {
       Error( Here(here), "Error initializing drift time-to-distance converter "
 	     "\"%s\". Check ttd.param in database.", s );

@@ -36,6 +36,15 @@ Int_t TimeToDistConv::SetParameters( const vector<double>& )
 }
 
 
+  //_____________________________________________________________________________
+Int_t TimeToDistConv::SetAngleParameters( Double_t R, Double_t Theta )
+{
+  if( fNparam == 0 )
+    fIsSet = true;
+  return 0;
+}
+
+
 // Int_t TimeToDistConv::PrintParameters(){
   
   

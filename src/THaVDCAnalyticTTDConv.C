@@ -25,7 +25,7 @@ AnalyticTTDConv::AnalyticTTDConv() : TimeToDistConv(9), fdtime(0)
 }
 
 //_____________________________________________________________________________
-Double_t AnalyticTTDConv::ConvertTimeToDist( Double_t time, Double_t tanTheta,
+Double_t AnalyticTTDConv::CalcDist( Double_t time, Double_t tanTheta,
 					     Double_t* ddist) const
 {
   // Drift Velocity in m/s
@@ -71,6 +71,55 @@ Double_t AnalyticTTDConv::ConvertTimeToDist( Double_t time, Double_t tanTheta,
 }
 
 //_____________________________________________________________________________
+Double_t AnalyticTTDConv::ConvertTimeToDist( Double_t time, Double_t tanTheta,
+					     Double_t* ddist) const
+{
+  // Drift Velocity in m/s
+  // time in s
+  // Return m
+
+  if( !fIsSet ) {
+    Error( "VDC::AnalyticTTDConv::ConvertTimeToDist", "Parameters not set. "
+	   "Fix database." );
+    return kBig;
+  }
+
+  //    printf("Converting Drift Time to Drift Distance!\n");
+
+  double dist = CalcDist(time, tanTheta, ddist); // get lookup table value for central angle
+  
+   
+  const double R = RCorr; // radius of electric field of wire
+  //  const double* fslope0 = &(par[1]); // central angle
+  const double fslope0 = Theta0; // central 
+  
+  const double fTheta0 = TMath::ATan(fslope0);
+  //  const double fTheta0 = 1/(*fslope0);
+  /* const double fTheta0 = (*fslope0); */
+
+
+  // slope in analyzer is 1/m where m is gradient of slope
+  tanTheta = TMath::ATan(1.0/tanTheta);
+
+  Double_t SecTheta = (1/TMath::Cos(tanTheta));
+  Double_t CosTheta = TMath::Cos(tanTheta);
+
+  Double_t SecTheta0 = (1/TMath::Cos(fTheta0));
+  
+
+  if (dist >= R*SecTheta0 ) {
+    dist += R*(SecTheta -  SecTheta0);
+
+  } else if (dist < R*SecTheta0 ) { 
+    
+    dist *= (SecTheta /  SecTheta0 );
+  }
+		 
+  return dist;
+}
+
+  
+//_____________________________________________________________________________
 Double_t AnalyticTTDConv::GetParameter( UInt_t i ) const
 {
   // Get i-th parameter
@@ -92,6 +141,20 @@ Double_t AnalyticTTDConv::GetParameter( UInt_t i ) const
   return kBig;
 }
 
+//_____________________________________________________________________________
+Int_t AnalyticTTDConv::SetAngleParameters( Double_t R, Double_t Theta)
+{
+  // Set coeffecients for angular correction
+
+  
+  RCorr = R;          // Distance at which angular correction changes (nature of E field)
+  Theta0 = Theta;     // central angle used in correction
+    
+  return 0;
+}
+
+
+  
 //_____________________________________________________________________________
 Int_t AnalyticTTDConv::SetParameters( const vector<double>& parameters )
 {

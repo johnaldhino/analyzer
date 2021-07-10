@@ -31,6 +31,7 @@ namespace VDC {
     virtual Int_t    PrintParameters() const {return 0;} 
     void             SetDriftVel( Double_t v );
     virtual Int_t    SetParameters( const std::vector<double>& );
+    virtual Int_t    SetAngleParameters( Double_t R, Double_t Theta);
     virtual Int_t    SetLookupParams( std::vector<Double_t> Table, Int_t NBins, Double_t Low, Double_t R, Double_t Theta, Double_t M1, Double_t M2);
     
 protected:
