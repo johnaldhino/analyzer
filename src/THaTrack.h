@@ -205,6 +205,13 @@ public:
     fUV21PY = UV21PY;
   }
 
+  void              SetUVTP(Double_t UV12Theta, Double_t UV12Phi, Double_t UV21Theta, Double_t UV21Phi)
+  { fUV12Theta = UV12Theta;
+    fUV12Phi = UV12Phi;
+    fUV21Theta = UV21Theta;
+    fUV21Phi = UV21Phi;
+  }
+
   virtual Bool_t    IsSortable() const { return kTRUE; }
   virtual Int_t	    Compare(const TObject* obj) const;
 
@@ -279,15 +286,19 @@ protected:
   Int_t             fGoodPlane3; // Track hit a plane 3 paddle
   Int_t             fGoodPlane4; // Track hit a plane 4 paddle
   
-  Double_t          fUV12X;   // X first chamber
-  Double_t          fUV12Y;   // Y first chamber
-  Double_t          fUV12PX;  // X in first chamber projected from second chamber
-  Double_t          fUV12PY;  // Y in first chamber projected from second chamber
+  Double_t          fUV12X;     // X first chamber
+  Double_t          fUV12Y;     // Y first chamber
+  Double_t          fUV12PX;    // X in first chamber projected from second chamber
+  Double_t          fUV12PY;    // Y in first chamber projected from second chamber
+  Double_t          fUV12Theta; // Theta in first chamber
+  Double_t          fUV12Phi;   // Phi in first chamber
 
-  Double_t          fUV21X;   // X second chamber
-  Double_t          fUV21Y;   // Y second chamber
-  Double_t          fUV21PX;  // X in second chamber projected from first chamber
-  Double_t          fUV21PY;  // Y in second chamber projected from first chamber
+  Double_t          fUV21X;     // X second chamber
+  Double_t          fUV21Y;     // Y second chamber
+  Double_t          fUV21PX;    // X in second chamber projected from first chamber
+  Double_t          fUV21PY;    // Y in second chamber projected from first chamber
+  Double_t          fUV21Theta; // Theta in secopnd chamber
+  Double_t          fUV21Phi;   // Phi in second chamber
 
 
   

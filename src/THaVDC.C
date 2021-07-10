@@ -606,20 +606,29 @@ Int_t THaVDC::ConstructTracks( TClonesArray* tracks, Int_t mode )
     Double_t UV12Y = kBig;
     Double_t UV12PX = kBig;
     Double_t UV12PY = kBig;
+    Double_t UV12Theta = kBig;
+    Double_t UV12Phi = kBig;
     
     Double_t UV21X = kBig;
     Double_t UV21Y = kBig;
     Double_t UV21PX = kBig;
     Double_t UV21PY = kBig;
+    Double_t UV21Theta = kBig;
+    Double_t UV21Phi = kBig;
 
     
     THaVDCPointPair::CalcXY( lowerPoint, upperPoint, fSpacing, UV12X, UV12Y, UV12PX, UV12PY, UV21X, UV21Y, UV21PX, UV21PY);
-    
+
+
+    THaVDCPointPair::GetTP(lowerPoint, upperPoint, UV12Theta, UV12Phi, UV21Theta, UV21Phi);
+
     //    theTrack->SetUVXY(UV12X, UV12Y, UV12PX, UV12PY, UV21X, UV21Y, UV21PX, UV21PY);
 
     
     thePair->Use();
     nTracks++;
+  
+  
 
 #ifdef WITH_DEBUG
     if( fDebug>2 ) {
@@ -706,8 +715,10 @@ Int_t THaVDC::ConstructTracks( TClonesArray* tracks, Int_t mode )
       theTrack->SetToff(toffAv);
       //      theTrack->SetToff(1.0);
             
-            
+      
       theTrack->SetUVXY(UV12X, UV12Y, UV12PX, UV12PY, UV21X, UV21Y, UV21PX, UV21PY);
+
+      theTrack->SetUVTP(UV12Theta, UV12Phi, UV21Theta, UV21Phi);
 
       
       theTrack->SetD(lowerPoint->GetX(), lowerPoint->GetY(),
