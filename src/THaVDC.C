@@ -351,6 +351,7 @@ Int_t THaVDC::ReadDatabase( const TDatime& date )
     { "1.Y.res",           &fYRes_1,           kDouble, 0, 1 },
     { "2.X.res",           &fXRes_2,           kDouble, 0, 1 },
     { "2.Y.res",           &fYRes_2,           kDouble, 0, 1 },
+    { "AmbiClusters",      &fAmbiClusters,     kInt,    0, 1 },
 #ifdef MCDATA
     { "MCdata",            &mc_data,           kInt,    0, 1 },
 #endif
@@ -475,6 +476,9 @@ Int_t THaVDC::ConstructTracks( TClonesArray* tracks, Int_t mode )
 
   fLUpairs->Clear();
 
+  fLMatches.clear();
+  fUMatches.clear();
+
   Int_t nUpper = fUpper->GetNPoints();
   Int_t nLower = fLower->GetNPoints();
 
@@ -497,49 +501,96 @@ Int_t THaVDC::ConstructTracks( TClonesArray* tracks, Int_t mode )
 
   Int_t nPairs  = 0;  // Number of point pairs to consider
 
+  fLMatches.resize(nLower);
+  fUMatches.resize(nUpper);
+  
+
   for( int i = 0; i < nLower; i++ ) {
     THaVDCPoint* lowerPoint = fLower->GetPoint(i);
     assert(lowerPoint);
-
+    
     for( int j = 0; j < nUpper; j++ ) {
       THaVDCPoint* upperPoint = fUpper->GetPoint(j);
       assert(upperPoint);
 
-      // Compute projection error of the selected pair of points
-      // i.e., how well the two points point at each other.
-      // Don't bother with pairs that are obviously mismatched
-      Double_t error =
-	THaVDCPointPair::CalcErrorEst( lowerPoint, upperPoint, fSpacing );
 
+      
+      
+      THaVDCPointPair* testPair = new THaVDCPointPair( lowerPoint, upperPoint, fSpacing, fXRes_1, fYRes_1);
+      Bool_t PairPass = false;
+      
+      Double_t error = testPair->CalcError(PairPass);
+     
+      
       // Don't create pairs whose matching error is too big
       if( error >= fErrorCutoff ){
-	// cout << "Failed cutoff" << endl;
-	// cout << "Error = " << error << " > cutoff (" << fErrorCutoff << ")" << endl;
+	//if( error >= fErrorCutoff || !PairPass){
 	continue;
       }
       else{
-	//	cout << "Error = " << error << " < cutoff (" << fErrorCutoff << ")" << endl;
+	//	cout << "Pushing back to fLMatches and fUMatches" << endl;
+
+	if(fAmbiClusters){
+	  fLMatches[i].push_back(j);
+	  fUMatches[j].push_back(i);
+	}
+	else{	  
+	  THaVDCPointPair* thePair = new( (*fLUpairs)[nPairs++] )
+	    THaVDCPointPair( lowerPoint, upperPoint, fSpacing, fXRes_1, fYRes_1);
+	  thePair->Analyze();
+		 
+	}
+	
       }
+      
+    }
+                  
+  }
 
-      // Create new point pair
-      THaVDCPointPair* thePair = new( (*fLUpairs)[nPairs++] )
-	THaVDCPointPair( lowerPoint, upperPoint, fSpacing, fXRes_1, fYRes_1);
 
-      // Explicitly mark these points as unpartnered
-      lowerPoint->SetPartner( 0 );
-      upperPoint->SetPartner( 0 );
 
-      // Further analyze this pair
-      //TODO: Several things come to mind, to be tested:
-      // - calculate global slope
-      // - recompute drift distances using global slope
-      // - refit cluster using new distances
-      // - calculate global chi2
-      // - sort pairs by this global chi2 later?
-      // - could do all of this before deciding to keep this pair
-      thePair->Analyze();
+  
+  if(fAmbiClusters){
+    for( int i = 0; i < nLower; i++ ) {
+      // loop UV1 and UV2 vectors and check for UV pairs where each point has only one potential match
+      
+      // if UV1 points has 1 match check this match for same condition
+      if( fLMatches[i].size() == 1){
+	
+	// second condition should be unneccesary here
+	if(fUMatches[fLMatches[i][0]].size() == 1 && fUMatches[fLMatches[i][0]][0] == i){
+	  
+	  
+	  THaVDCPoint* lowerPoint = fLower->GetPoint(i);
+	  assert(lowerPoint);
+	  
+	  THaVDCPoint* upperPoint = fUpper->GetPoint(fLMatches[i][0]);
+	  assert(upperPoint);
+	  
+	  
+	  THaVDCPointPair* thePair = new( (*fLUpairs)[nPairs++] )
+	    THaVDCPointPair( lowerPoint, upperPoint, fSpacing, fXRes_1, fYRes_1);
+	  
+	  // Explicitly mark these points as unpartnered
+	  lowerPoint->SetPartner( 0 );
+	  upperPoint->SetPartner( 0 );
+	  
+	  // Further analyze this pair
+	  //TODO: Several things come to mind, to be tested:
+	  // - calculate global slope
+	  // - recompute drift distances using global slope
+	  // - refit cluster using new distances
+	  // - calculate global chi2
+	  // - sort pairs by this global chi2 later?
+	  // - could do all of this before deciding to keep this pair
+	  thePair->Analyze();
+	  
+	}
+	
+      }     
     }
   }
+  
 
   // Initialize counters
   int n_exist = 0, n_mod = 0;
@@ -762,11 +813,11 @@ Int_t THaVDC::ConstructTracks( TClonesArray* tracks, Int_t mode )
 	// First, release clusters pointing to this track
 	for( int j = 0; j < nPairs; j++ ) {
 	  THaVDCPointPair* thePair
-	    = static_cast<THaVDCPointPair*>( fLUpairs->At(i) );
+	    = static_cast<THaVDCPointPair*>( fLUpairs->At(j) ); // changed from At(i)
 	  assert(thePair);
 	  if( thePair->GetTrack() == theTrack ) {
 	    thePair->Associate(0);
-	    break;
+	    //	    break;
 	  }
 	}
 	// Then, remove the track
@@ -789,14 +840,107 @@ Int_t THaVDC::ConstructTracks( TClonesArray* tracks, Int_t mode )
 //       tracks->Compress();
   }
 
+
+  // reorder
+  if(tracks->GetEntries()>1){
+    tracks->Sort();
+  }
+  
   // Assign index to each track (0 = first/"best", 1 = second, etc.)
+
+  /*
+  cout << "No tracks = " << tracks->GetLast()+1 << endl;
+  cout << "No pairs = " << nPairs << endl;
+  cout << "fLUpairs->GetLast()+1 = " << fLUpairs->GetLast()+1  << endl;
+
+  
+  for( int j = 0; j < nPairs; j++ ) {
+    cout << "j = " << j << endl;
+        
+    THaVDCPointPair* thePair      
+      = static_cast<THaVDCPointPair*>( fLUpairs->At(j) );
+    cout << "Declared pointer for " << j << "th pair" << endl;
+
+    cout << "Status = " << thePair->GetStatus() << endl;
+   
+    THaVDCPoint* point[2] = { thePair->GetLower(), thePair->GetUpper() };
+    
+    for( int k=0; k<2; k++ ) {
+      
+      
+      THaVDCCluster* UClust = point[k]->GetUCluster();
+      THaVDCCluster* VClust = point[k]->GetVCluster();
+      
+      //      cout << "U" << k << " = " << UClust->GetClsNum() << ", V" << k << " = " << VClust->GetClsNum() <<  endl;	
+    }
+
+    if(thePair->GetStatus()){
+      //      cout << "Pair " << j << " : trackno = " << thePair->GetTrack()->GetTrkNum() << endl;
+    }
+    else{
+      continue;
+    }
+      
+  }
+    
+  */
+
+
+  
   if( tracks ) {
     for( int i = 0; i < tracks->GetLast()+1; i++ ) {
       THaTrack* theTrack = static_cast<THaTrack*>( tracks->At(i) );
       assert( theTrack );
-      theTrack->SetIndex(i);
+      theTrack->SetIndex(i);      
+      theTrack->SetTrkNum(i+1);
+
+      //      cout << "For track " << i << endl;
+      for( int j = 0; j < nPairs; j++ ) {
+	THaVDCPointPair* thePair
+	  = static_cast<THaVDCPointPair*>( fLUpairs->At(j) );
+	assert(thePair);
+
+	if(!thePair->GetStatus()){
+	  continue;
+	}
+
+	if( thePair->GetTrack() == theTrack ) {
+
+	  //  cout << "Match with pair  " << j << endl;
+	  
+	  thePair->Associate(theTrack);
+	
+	  //	  THaVDCPoint* point[2] = { thePair->GetLower(), thePair->GetUpper() };
+	  
+	  // for( int k=0; k<2; k++ ) {
+
+	  //   cout << "Pair " << k << ": track = " << point[k]->GetTrackIndex() << endl;
+	  //   THaVDCCluster* UClust = point[k]->GetUCluster();
+	  //   THaVDCCluster* VClust = point[k]->GetVCluster();
+	  //   cout << "From " << "U" << k << " = " << UClust->GetClsNum() << ", V" << k << " = " << VClust->GetClsNum() <<  endl;		      
+	    
+	  //   cout << "Setting pair " << k << endl;
+	  //   point[k]->SetTrack( theTrack );
+	  //   point[k]->GetUCluster()->SetTrack( theTrack );
+	  //   point[k]->GetVCluster()->SetTrack( theTrack );
+	  // }
+	}
+	
+      }
     }
   }
+
+  //  cout << endl << endl;
+  
+  // reassign/update cluster track numbers also
+
+  //  for( int i = 0; i< nPairs; i++){
+    // THaVDCPointPair* thePair
+    //   = static_cast<THaVDCPointPair*>( fLUpairs->At(i) );
+    // Int_t TrackInd = thePair->GetTrack()->GetIndex();
+    // thePair->Associate((THaTrack*)tracks->At(TrackInd));    
+  //  }
+  
 
   return nTracks;
 }

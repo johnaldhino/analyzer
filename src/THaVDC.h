@@ -94,6 +94,10 @@ protected:
   THaVDCChamber* fLower;    // Lower chamber
   THaVDCChamber* fUpper;    // Upper chamber
 
+  // vectors of LU matches
+  std::vector<std::vector<Int_t>> fLMatches; // vector of lower chamber points recording indices in upper chamber which are potential matches
+  std::vector<std::vector<Int_t>> fUMatches; // vector of upper chamber points recording indices in lower chamber which are potential matches
+  
   // Event data
   TClonesArray*  fLUpairs;  // Candidate pairs of lower/upper points
   Int_t    fNtracks;        // Number of tracks found in ConstructTracks
@@ -110,6 +114,12 @@ protected:
 			    // the origin of the transport coordinates to
 			    // the s1 plane
 
+  
+  // parameter determining if ambiguous tracks are cutoff
+  // (ambiguous being if pair of clusters in one plane can be matched withon cutoff with moe than one pair of clusters in the other chamber)
+  Bool_t fAmbiClusters = false; // true if ambiguous clusters are cut
+
+  
   // position-projection resolution
   Double_t fXRes_1;        // resolution in X_2 - P_X_1
   Double_t fYRes_1;        // resolution in Y_2 - P_Y_1
