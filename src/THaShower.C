@@ -311,7 +311,7 @@ void THaShower::Clear( Option_t* opt )
   fNhits = fNclust = fMult = 0;
   assert(fIsInit);
   for( Int_t i=0; i<fNelem; ++i ) {
-    fA[i] = fA_p[i] = fA_c[i] = kBig;
+    fA[i] = fA_p[i] = fA_c[i] = 0;
   }
   fAsum_p = fAsum_c = 0.0;
   fE = fX = fY = kBig;
