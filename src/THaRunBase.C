@@ -118,6 +118,7 @@ Int_t THaRunBase::Update( const THaEvData* evdata )
   // Run date & number
   if( evdata->IsPrestartEvent() ) {
     if( !fAssumeDate ) {
+      tzset();
       fDate.Set( evdata->GetRunTime() );
       fDataSet |= kDate;
     }
