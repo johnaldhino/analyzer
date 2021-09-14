@@ -144,6 +144,40 @@ Int_t THaReactionPoint::Process( const THaEvData& )
 //      Double_t dz  = dx /( theTrack->GetLabPx()/theTrack->GetLabPz() - beam_th );
 //      Double_t z   = z0 + dz;
 //      theTrack->SetVertex( beam_x+beam_th*z, beam_y+beam_ph*z, z );
+
+
+    // calculate alternative reactz based on tg_y and beam (but not on momentum vector)
+    // alternative reactz calculation
+
+
+    Double_t y = theTrack->GetTY();
+    Double_t phi = theTrack->GetTPhi();
+    
+    Double_t HRSAngle = fSpectro->GetThetaGeo();
+
+    
+    const Double_t D2R = TMath::Pi() / 180.;    
+    
+        
+    if(HRSAngle >= 0.0)
+      {
+	HRSAngle = 5.0 * D2R;
+      }
+    else if(HRSAngle <0.0)
+      {
+	HRSAngle = -5.0 * D2R;
+      }
+    
+      
+    
+    Double_t alt_reactz = - ( y)*TMath::Cos(phi)/TMath::Sin(HRSAngle + phi) + beam_org.X()*TMath::Cos(HRSAngle + phi)/TMath::Sin(HRSAngle + phi);
+    
+    theTrack-> SetAltVertex(beam_org.X()+beam_ray.X()*alt_reactz,beam_org.Y()+beam_ray.Y()*alt_reactz,alt_reactz); 
+    
+
+    
+    
+    
   }
   return 0;
 }

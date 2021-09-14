@@ -46,6 +46,8 @@ void THaTrack::Clear( Option_t* opt )
     fPvect.SetXYZ( kBig, kBig, kBig );
     fVertex.SetXYZ( kBig, kBig, kBig );
     fVertexError.SetXYZ( kBig, kBig, kBig );
+    fAltVertex.SetXYZ( kBig, kBig, kBig );
+    fAltVertexError.SetXYZ( kBig, kBig, kBig );
     fPathl = fToff = fTime = fdTime = fBeta = fdBeta = kBig;
     fUV12X = fUV12Y = fUV12PX = fUV12PY = kBig;
     fUV21X = fUV21Y = fUV21PX = fUV21PY = kBig;

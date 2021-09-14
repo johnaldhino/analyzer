@@ -122,11 +122,16 @@ public:
   Double_t          GetVertexX()       const { return fVertex.X(); }
   Double_t          GetVertexY()       const { return fVertex.Y(); }
   Double_t          GetVertexZ()       const { return fVertex.Z(); }
+  Double_t          GetAltVertexX()    const { return fAltVertex.X(); }
+  Double_t          GetAltVertexY()    const { return fAltVertex.Y(); }
+  Double_t          GetAltVertexZ()    const { return fAltVertex.Z(); }
   Double_t          GetPathLen()       const { return fPathl; }
 
   TVector3&         GetPvect()               { return fPvect; }
   TVector3&         GetVertex()              { return fVertex; }
   TVector3&         GetVertexError()         { return fVertexError; }
+  TVector3&         GetAltVertex()           { return fAltVertex; }
+  TVector3&         GetAltVertexError()      { return fAltVertexError; }
 
   Double_t          GetTime()          const { return fTime; } // at refplane (s)
   Double_t          GetdTime()         const { return fdTime; } // (s)
@@ -193,6 +198,14 @@ public:
   { fVertexError = err; }
   void              SetVertexError( Double_t x, Double_t y, Double_t z )
   { fVertexError.SetXYZ( x, y, z ); }
+  void              SetAltVertex( const TVector3& vert )
+  { fAltVertex = vert; fType |= kHasVertex; }
+  void              SetAltVertex( Double_t x, Double_t y, Double_t z )
+  { fAltVertex.SetXYZ( x, y, z ); fType |= kHasVertex; }
+  void              SetAltVertexError( const TVector3& err )
+  { fAltVertexError = err; }
+  void              SetAltVertexError( Double_t x, Double_t y, Double_t z )
+  { fAltVertexError.SetXYZ( x, y, z ); }
   
   void              SetUVXY(Double_t UV12X, Double_t UV12Y, Double_t UV12PX, Double_t UV12PY, Double_t UV21X, Double_t UV21Y, Double_t UV21PX, Double_t UV21PY)
   { fUV12X = UV12X;
@@ -248,6 +261,8 @@ protected:
   TVector3          fPvect;  // Momentum vector at target in lab system (GeV)
   TVector3          fVertex; // Vertex location in lab (m) valid if fHasVertex
   TVector3          fVertexError; // Uncertainties in fVertex coordinates.
+  TVector3          fAltVertex; // Alternative Vertex location in lab (m); calculated using reconstructed tg_y directly 
+  TVector3          fAltVertexError; // Uncertainties in fAltVertex coordinates.
 
   Double_t          fPathl;  // pathlength from target (z=0) (meters)
 
