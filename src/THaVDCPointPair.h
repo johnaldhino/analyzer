@@ -53,10 +53,10 @@ public:
   Double_t CalcError(Bool_t &Pass);
 
   
-  static Double_t CalcErrorEst( THaVDCPoint* lowerPoint,
+  /*static PointPair_Diff CalcErrorEst( THaVDCPoint* lowerPoint,
 			     THaVDCPoint* upperPoint,
-			     Double_t spacing );
-  
+				Double_t spacing);
+  */
 
   static void CalcXY( THaVDCPoint* lowerPoint,
 		      THaVDCPoint* upperPoint,

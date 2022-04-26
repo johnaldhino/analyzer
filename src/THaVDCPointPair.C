@@ -128,19 +128,38 @@ Double_t THaVDCPointPair::CalcErrorEst( THaVDCPoint* here,
   // these must be scaled by appropriate sigma values for each distribution
   
   
-  
-  Double_t error =
-    GetProjectedDistance( here, there, spacing );
-  error +=
-    GetProjectedDistance( there, here, -spacing );
 
+  Double_t UV12X = kBig;
+  Double_t UV12Y = kBig;
+  Double_t UV12PX = kBig;
+  Double_t UV12PY = kBig;
+  Double_t UV12Theta = kBig;
+  Double_t UV12Phi = kBig;
   
-  error += GetTimeOffsetDifference(here, there);
+  Double_t UV21X = kBig;
+  Double_t UV21Y = kBig;
+  Double_t UV21PX = kBig;
+  Double_t UV21PY = kBig;
+  Double_t UV21Theta = kBig;
+  Double_t UV21Phi = kBig;
 
+    
+  THaVDCPointPair::CalcXY( here, there, fSpacing, UV12X, UV12Y, UV12PX, UV12PY, UV21X, UV21Y, UV21PX, UV21PY);
+
+  Double_t X1Diff = UV12X - UV12PX;
+  Double_t Y1Diff = UV12X - UV12PX;
+
+  Double_t X2Diff = UV21X - UV21PX;
+  Double_t Y2Diff = UV21X - UV21PX;
+
+  Double_t t0Diff = here-
+
+
+  PointPair_Diff PairDiff = {X1Diff,Y1Diff,X2Diff,Y2Diff,t0Diff};
   
-  return error;
+  return PairDiff;
 }
-
+*/
 
 
 
